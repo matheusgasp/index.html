@@ -477,6 +477,17 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     <button class="btn-backup" onclick="exportBackup()">⬇ Baixar backup</button>
   </div>
 
+  <div class="import-box" style="margin-bottom:10px">
+    <div class="import-title">🔄 Restaurar backup completo</div>
+    <div class="import-hint">Cole o conteúdo do arquivo <code>atacadao-backup-*.json</code>. Restaura <strong>todos</strong> os dados: DRE, NFs e Vendas.</div>
+    <textarea class="json-area" id="restore-json" placeholder='{"versao":"atacadao_v1","dreEntries":[...],"nfRecords":[...],"vendaRecords":[...]}' style="min-height:80px"></textarea>
+    <div class="btn-row">
+      <button class="btn-import" onclick="restoreBackup()">🔄 Restaurar</button>
+      <button class="btn-clear-imp" onclick="document.getElementById('restore-json').value='';document.getElementById('restore-result').style.display='none'">✕ Limpar</button>
+    </div>
+    <div class="import-result" id="restore-result"></div>
+  </div>
+
   <div class="mix-nav">
     <button class="mix-tab active" onclick="goHistTab('nfs',event)">NFs</button>
     <button class="mix-tab" onclick="goHistTab('lancamentos',event)">Lançamentos</button>
@@ -1315,6 +1326,23 @@ function exportBackup(){
   const d=new Date();a.href=url;
   a.download=`atacadao-backup-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
   a.click();URL.revokeObjectURL(url);
+}
+
+async function restoreBackup(){
+  const raw=document.getElementById('restore-json').value.trim();
+  if(!raw){showImportResult('restore-result','err','Cole o JSON do backup antes de restaurar.');return;}
+  let parsed;
+  try{parsed=JSON.parse(raw);}catch(e){showImportResult('restore-result','err','JSON inválido. Verifique o arquivo.');return;}
+  if(parsed.versao!=='atacadao_v1'){showImportResult('restore-result','err','Arquivo não reconhecido. Use um backup gerado por este app.');return;}
+  if(!confirm('Isso vai SUBSTITUIR todos os dados atuais pelo backup. Confirma?'))return;
+  dreEntries=Array.isArray(parsed.dreEntries)?parsed.dreEntries:[];
+  nfRecords=Array.isArray(parsed.nfRecords)?parsed.nfRecords:[];
+  vendaRecords=Array.isArray(parsed.vendaRecords)?parsed.vendaRecords:[];
+  await saveAll();
+  document.getElementById('restore-json').value='';
+  const ex=parsed.exportadoEm?new Date(parsed.exportadoEm).toLocaleString('pt-BR'):'data desconhecida';
+  showImportResult('restore-result','ok',`✓ Backup restaurado! ${dreEntries.length} lançamentos · ${nfRecords.length} NFs · ${vendaRecords.length} vendas · exportado em ${ex}`);
+  renderHistorico();
 }
 
 function showImportResult(elId,type,msg){
