@@ -231,13 +231,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 
 <div class="hd">
   <div class="hd-eye">Atacadão do Sorvete · Matriz</div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <div class="hd-title" style="margin-bottom:0">🍦 Gestão Financeira</div>
-    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-      <div id="drive-dot" style="width:7px;height:7px;border-radius:50%;background:#ef4444;flex-shrink:0;transition:background .3s"></div>
-      <div id="drive-status" style="font-size:10px;color:rgba(255,255,255,.6);letter-spacing:.03em">Drive não configurado</div>
-    </div>
-  </div>
+  <div class="hd-title">🍦 Gestão Financeira</div>
   <div class="tabs">
     <button class="tab active"  onclick="goTab('nf')">📦 NF</button>
     <button class="tab"         onclick="goTab('vendas')">🛒 Vendas</button>
@@ -449,13 +443,17 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 
 <!-- ══ DRE ══ -->
 <div id="panel-dre" class="panel">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 10px">
     <div class="month-nav">
       <button class="mnav-btn" onclick="changeDreMonth(-1)">‹</button>
       <div class="mnav-lbl" id="dre-month-lbl">—</div>
       <button class="mnav-btn" onclick="changeDreMonth(1)">›</button>
     </div>
     <div id="dre-cnt" style="font-size:11px;color:var(--tx3)"></div>
+  </div>
+  <div class="mix-nav" style="margin-bottom:12px">
+    <button class="mix-tab active" id="dre-tab-detalhado" onclick="goDreView('detalhado')">📋 Detalhado</button>
+    <button class="mix-tab" id="dre-tab-fornecedor" onclick="goDreView('fornecedor')">🏭 Por Fornecedor</button>
   </div>
   <div id="dre-content"><div class="empty"><div class="empty-icon">📊</div><p>Carregando...</p></div></div>
 </div>
@@ -511,8 +509,8 @@ const SUBTYPES_DESP=[
   {v:'manut',l:'Manutenção / Combustível'},{v:'outros',l:'Outros'},
 ];
 const FORN_GM={
-  'Gelateria Antártica':{min:33,max:43,label:'33–43%'},// calculado via NF 170.710 c/ impostos (média 36,9%)
-  'Los Los (PPPP)':{min:26,max:48,label:'26–48%'},// calculado via NF 000.006.000 (média 31,0% · sem IPI/ICMS-ST adicional)
+  'Gelateria Antártica':{min:40,max:52,label:'40–52%'},
+  'Los Los (PPPP)':{min:29,max:53,label:'29–53%'},
   'Cream Color':{min:30,max:45,label:'30–45%'},
   'Ice Tasty':{min:30,max:50,label:'30–50%'},
   'Icegustos':{min:38,max:47,label:'38–47%'},
@@ -522,12 +520,6 @@ const FORN_GM={
 const TIPOS_VALIDOS=Object.keys(TIPOS_META);
 const FORNECEDORES_VALIDOS=['Gelateria Antártica','Los Los (PPPP)','Cream Color','Ice Tasty','Icegustos','Boa Chá','DG Açaizinho','Outro'];
 
-// ══════════════════════════════════════════════════════
-//  🔗 COLE AQUI A URL DO SEU GOOGLE APPS SCRIPT
-//  (você vai gerar essa URL seguindo o guia passo a passo)
-// ══════════════════════════════════════════════════════
-const DRIVE_URL = 'https://script.google.com/macros/s/AKfycbxbnA1Ry43dXsWI9WxabvgNzKnlRihC3THQKql2l-q2YkfGgXt4A9nkB2NhhJfgLt3kLA/exec';
-
 let dreEntries=[];
 let nfRecords=[];
 let vendaRecords=[];
@@ -536,112 +528,17 @@ let activeMixTab='gm';
 let activeHistTab='nfs';
 let dreMonth=new Date().getMonth();
 let dreYear=new Date().getFullYear();
+let dreView='detalhado';
 let itemCount=0;
-let driveConectado=false;
-let salvandoDrive=false;
-
-// ── DRIVE: carregar todos os dados ──
-async function loadFromDrive(){
-  if(!DRIVE_URL)return false;
-  try{
-    setStatus('carregando','Carregando do Drive...');
-    const r=await fetch(DRIVE_URL,{redirect:'follow'});
-    const dados=await r.json();
-    if(dados.dre_v2!==undefined)dreEntries=dados.dre_v2||[];
-    if(dados.nf_compras!==undefined)nfRecords=dados.nf_compras||[];
-    if(dados.nf_vendas!==undefined)vendaRecords=dados.nf_vendas||[];
-    driveConectado=true;
-    setStatus('ok','Drive conectado ✓');
-    return true;
-  }catch(e){
-    setStatus('erro','Sem conexão com Drive');
-    return false;
-  }
-}
-
-// ── DRIVE: salvar todos os dados ──
-async function saveToDrive(){
-  if(!DRIVE_URL||salvandoDrive)return;
-  salvandoDrive=true;
-  setStatus('salvando','Salvando...');
-  try{
-    await fetch(DRIVE_URL,{
-      method:'POST',
-      mode:'no-cors',
-      body:JSON.stringify({dre_v2:dreEntries,nf_compras:nfRecords,nf_vendas:vendaRecords})
-    });
-    setStatus('ok','Salvo no Drive ✓');
-  }catch(e){
-    setStatus('erro','Erro ao salvar');
-  }
-  salvandoDrive=false;
-}
-
-// ── STATUS INDICATOR ──
-function setStatus(tipo,msg){
-  const el=document.getElementById('drive-status');
-  if(!el)return;
-  const cores={ok:'#22c55e',salvando:'#f59e0b',carregando:'#f59e0b',erro:'#ef4444'};
-  el.textContent=msg;
-  el.style.color=cores[tipo]||'#94a3b8';
-  const dot=document.getElementById('drive-dot');
-  if(dot)dot.style.background=cores[tipo]||'#94a3b8';
-}
 
 // ── INIT ──
 async function init(){
   buildFormSelects();
   setDefaultDates();
   addItem();
-  if(DRIVE_URL){
-    // Tenta carregar do Drive
-    const ok=await loadFromDrive();
-    if(!ok){
-      // Fallback: tenta storage local
-      try{const r=await window.storage.get('dre_v2');if(r)dreEntries=JSON.parse(r.value);}catch(e){dreEntries=[];}
-      try{const r=await window.storage.get('nf_compras');if(r)nfRecords=JSON.parse(r.value);}catch(e){nfRecords=[];}
-      try{const r=await window.storage.get('nf_vendas');if(r)vendaRecords=JSON.parse(r.value);}catch(e){vendaRecords=[];}
-    }
-  } else {
-    // Sem Drive configurado: usa storage local
-    try{const r=await window.storage.get('dre_v2');if(r)dreEntries=JSON.parse(r.value);}catch(e){dreEntries=[];}
-    try{const r=await window.storage.get('nf_compras');if(r)nfRecords=JSON.parse(r.value);}catch(e){nfRecords=[];}
-    try{const r=await window.storage.get('nf_vendas');if(r)vendaRecords=JSON.parse(r.value);}catch(e){vendaRecords=[];}
-    setStatus('erro','Drive não configurado');
-  }
-  await seedNF170710();
-}
-
-// ── SEED NF 000.170.710 — Gelateria Antártica · 07/04/2026 ──
-async function seedNF170710(){
-  const NF_NUM='000.170.710';
-  const FORN='Gelateria Antártica';
-  const TOTAL_CORRETO=1214.43;
-  const existentes=nfRecords.filter(n=>n.nf===NF_NUM&&n.fornecedor===FORN);
-  const jaCorreta=existentes.find(n=>Math.abs(n.total_nf-TOTAL_CORRETO)<0.01);
-  if(jaCorreta)return;
-  if(existentes.length){
-    const idsErrados=existentes.map(n=>n.id);
-    nfRecords=nfRecords.filter(n=>!idsErrados.includes(n.id));
-    dreEntries=dreEntries.filter(e=>!idsErrados.includes(e.source_id));
-  }
-  dreEntries=dreEntries.filter(e=>e.id!=='dre-seed-170710');
-  const NF_ID='nf-seed-170710';
-  const itens=[
-    {id:'it-1',codigo:'11284',descricao:'PICOLE GIRA GIRA CHICLETINHO MARCELA C/20 [SKU 87 · R$8/un]',unidade:'CX',quantidade:1,valor_unit:90.51,valor_total:90.51},
-    {id:'it-2',codigo:'3993', descricao:'PICOLE SABORES DE MINAS CAFE C/28 [SKU 82 · R$8/un]',unidade:'CX',quantidade:1,valor_unit:127.06,valor_total:127.06},
-    {id:'it-3',codigo:'3994', descricao:'PICOLE SABORES DE MINAS PAMONHA C/28 [SKU 82 · R$8/un]',unidade:'CX',quantidade:1,valor_unit:127.06,valor_total:127.06},
-    {id:'it-4',codigo:'3019', descricao:'POTE 1,8L MALTINE [SKU 79 · R$38,50/un]',unidade:'UN',quantidade:8,valor_unit:22.06,valor_total:176.48},
-    {id:'it-5',codigo:'1545', descricao:'POTE 1,8L MOUSSE DE MARACUJA [SKU 79 · R$38,50/un]',unidade:'UN',quantidade:4,valor_unit:22.06,valor_total:88.24},
-    {id:'it-6',codigo:'1546', descricao:'POTE 1,8L NINHO TRUFADO [SKU 79 · R$38,50/un]',unidade:'UN',quantidade:12,valor_unit:22.06,valor_total:264.72},
-    {id:'it-7',codigo:'087',  descricao:'POTE TODA HORA LAKA FLOCADO C/16 [SKU 226 · R$8/un]',unidade:'CX',quantidade:1,valor_unit:65.29,valor_total:65.29},
-    {id:'it-8',codigo:'085',  descricao:'POTE TODA HORA MORANGO/BAUNILHA C/16 [SKU 226 · R$8/un]',unidade:'CX',quantidade:1,valor_unit:65.29,valor_total:65.29},
-    {id:'it-9',codigo:'4415', descricao:'POTE 1LT ZERO NAPOLITANO [SKU 89 · R$34,50/un]',unidade:'UN',quantidade:4,valor_unit:20.60,valor_total:82.40},
-    {id:'it-10',codigo:'—',   descricao:'IPI (R$35,33) + ICMS-ST (R$92,05) — tributos NF',unidade:'—',quantidade:1,valor_unit:127.38,valor_total:127.38},
-  ];
-  nfRecords.push({id:NF_ID,nf:NF_NUM,fornecedor:FORN,emissao:'2026-04-07',month:'2026-04',total_nf:TOTAL_CORRETO,itens,total_itens:TOTAL_CORRETO,validado:true,criadoEm:'2026-04-07T17:46:49.000Z',importado:true});
-  dreEntries.push({id:'dre-seed-170710',source:'nf',source_id:NF_ID,month:'2026-04',tipo:'cmv_revenda',subtipo:'',fornecedor:FORN,descricao:FORN+' — NF '+NF_NUM+' (c/ IPI+ICMS-ST · GM≈37%)',valor:TOTAL_CORRETO,criadoEm:'2026-04-07T17:46:49.000Z'});
-  await saveAll();
+  try{const r=await window.storage.get('dre_v2');if(r)dreEntries=JSON.parse(r.value);}catch(e){dreEntries=[];}
+  try{const r=await window.storage.get('nf_compras');if(r)nfRecords=JSON.parse(r.value);}catch(e){nfRecords=[];}
+  try{const r=await window.storage.get('nf_vendas');if(r)vendaRecords=JSON.parse(r.value);}catch(e){vendaRecords=[];}
 }
 
 function buildFormSelects(){
@@ -1037,7 +934,15 @@ function calcMonth(key){
   return{me,recRev,recProp,recB2b,cmvRev,cmvProp,desp,fin,totalRec,totalCmv,lb,ebitda,liquido};
 }
 
+function goDreView(v){
+  dreView=v;
+  document.getElementById('dre-tab-detalhado').classList.toggle('active',v==='detalhado');
+  document.getElementById('dre-tab-fornecedor').classList.toggle('active',v==='fornecedor');
+  renderDRE();
+}
+
 function renderDRE(){
+  if(dreView==='fornecedor'){renderDREFornecedor();return;}
   const key=dreKey();
   const d=calcMonth(key);
   const c=document.getElementById('dre-content');
@@ -1117,6 +1022,67 @@ function renderDRE(){
 
   <div class="dblock" style="margin-bottom:4px">
     <div class="res tint"><div class="res-lbl">EBITDA</div><div class="res-val" style="color:${d.ebitda>=0?'var(--tx)':'var(--r-text)'}">${fmt(d.ebitda)}</div></div>
+    <div class="res tint"><div class="res-lbl">(–) Desp. Financeiras</div><div class="res-val neg">${fmt(d.fin)}</div></div>
+    <div class="res liquido">
+      <div><div class="res-lbl">= Lucro Líquido</div><div class="res-pct">${d.liquido>=0?'🟢 Construindo caixa':'🔴 Queimando caixa'} · ${pct(d.liquido,d.totalRec)}</div></div>
+      <div class="res-val">${fmt(d.liquido)}</div>
+    </div>
+  </div>`;
+}
+
+function renderDREFornecedor(){
+  const key=dreKey();
+  const d=calcMonth(key);
+  const c=document.getElementById('dre-content');
+  document.getElementById('dre-cnt').textContent=d.me.length?d.me.length+' lançamento'+(d.me.length>1?'s':''):'';
+  if(!d.me.length){
+    c.innerHTML=`<div class="empty"><div class="empty-icon">📊</div><p>Nenhum lançamento em ${mkl(key)}.</p></div>`;return;
+  }
+  const revMap={},cmvMap={};
+  d.me.filter(e=>e.tipo==='rev_revenda').forEach(e=>{const f=e.fornecedor||'Sem fornecedor';revMap[f]=(revMap[f]||0)+e.valor;});
+  d.me.filter(e=>e.tipo==='cmv_revenda').forEach(e=>{const f=e.fornecedor||'Sem fornecedor';cmvMap[f]=(cmvMap[f]||0)+e.valor;});
+  const fornSet=new Set([...Object.keys(revMap),...Object.keys(cmvMap)]);
+  const mkFornRow=(f,rev,cmv,icon)=>{
+    const lb=rev-cmv;
+    const gm=rev?lb/rev*100:null;
+    const gmCls=gm===null?'gray':gm>=40?'g':gm>=25?'a':'r';
+    return`<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center;padding:9px 14px;border-bottom:1px solid #f2f1ee">
+      <span style="font-size:12px;font-weight:600;color:var(--tx);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${icon||''}${f}</span>
+      <span style="color:var(--g-text);font-family:var(--mono);font-size:12px;text-align:right;min-width:68px">${rev?fmt(rev):'—'}</span>
+      <span style="color:var(--r-text);font-family:var(--mono);font-size:12px;text-align:right;min-width:68px">${cmv?fmt(cmv):'—'}</span>
+      <span style="color:${lb>=0?'var(--g-text)':'var(--r-text)'};font-family:var(--mono);font-size:12px;font-weight:600;text-align:right;min-width:68px">${fmt(lb)}</span>
+      <span class="pill ${gmCls}" style="min-width:46px;justify-content:center;text-align:center">${gm===null?'—':gm.toFixed(1)+'%'}</span>
+    </div>`;
+  };
+  const fornRows=[...fornSet].sort((a,b)=>((revMap[b]||0)-(cmvMap[b]||0))-((revMap[a]||0)-(cmvMap[a]||0)))
+    .map(f=>mkFornRow(f,revMap[f]||0,cmvMap[f]||0,''))
+    .join('');
+  const propRow=mkFornRow('Produção Própria',d.recProp,d.cmvProp,'🍦 ');
+  const b2bRow=d.recB2b?mkFornRow('B2B',d.recB2b,0,'🤝 '):'';
+  const ebitdaPct=d.totalRec?d.ebitda/d.totalRec*100:0;
+  const liqPct=d.totalRec?d.liquido/d.totalRec*100:0;
+  const hdr=(t,col)=>`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:${col||'var(--tx3)'};text-align:right">${t}</span>`;
+  c.innerHTML=`
+  <div class="strip">
+    <div class="sc"><div class="sc-lbl">Receita Total</div><div class="sc-val">${fmt(d.totalRec)}</div><div class="sc-sub">no mês</div></div>
+    <div class="sc g"><div class="sc-lbl">EBITDA</div><div class="sc-val" style="color:${d.ebitda>=0?'var(--tx)':'var(--r-text)'}">${fmt(d.ebitda)}</div><div class="badge ${gmBadge(ebitdaPct)}">${ebitdaPct.toFixed(1)}%</div></div>
+    <div class="sc ${d.liquido>=0?'g':'r'}"><div class="sc-lbl">Lucro Líquido</div><div class="sc-val" style="color:${d.liquido>=0?'var(--tx)':'var(--r-text)'}">${fmt(d.liquido)}</div><div class="badge ${gmBadge(liqPct)}">${liqPct.toFixed(1)}%</div></div>
+  </div>
+  <div class="dblock" style="margin-bottom:8px">
+    <div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;padding:8px 14px;border-bottom:1px solid var(--bd);background:var(--surf2)">
+      <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3)">Fornecedor</span>
+      ${hdr('Receita','var(--g-text)')}${hdr('CMV','var(--r-text)')}${hdr('L. Bruto')}${hdr('GM%')}
+    </div>
+    ${fornRows}${propRow}${b2bRow}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:var(--surf2)">
+      <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2)">Lucro Bruto Total</span>
+      <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${d.lb>=0?'var(--g-text)':'var(--r-text)'}">${fmt(d.lb)} <span style="font-size:11px;font-weight:400;color:var(--tx3)">(${pct(d.lb,d.totalRec)})</span></span>
+    </div>
+  </div>
+  <div class="dblock" style="margin-bottom:4px">
+    <div class="res tint"><div class="res-lbl">Lucro Bruto</div><div class="res-val" style="color:${d.lb>=0?'var(--tx)':'var(--r-text)'}">${fmt(d.lb)}</div></div>
+    <div class="res tint"><div class="res-lbl">(–) Despesas Op.</div><div class="res-val neg">${fmt(d.desp)}</div></div>
+    <div class="res ebitda"><div class="res-lbl">= EBITDA</div><div class="res-r"><div class="res-val">${fmt(d.ebitda)}</div><div class="res-pct">${pct(d.ebitda,d.totalRec)} da receita</div></div></div>
     <div class="res tint"><div class="res-lbl">(–) Desp. Financeiras</div><div class="res-val neg">${fmt(d.fin)}</div></div>
     <div class="res liquido">
       <div><div class="res-lbl">= Lucro Líquido</div><div class="res-pct">${d.liquido>=0?'🟢 Construindo caixa':'🔴 Queimando caixa'} · ${pct(d.liquido,d.totalRec)}</div></div>
@@ -1337,14 +1303,9 @@ function renderEstoque(){
 
 // ══ HELPERS ══
 async function saveAll(){
-  if(DRIVE_URL){
-    await saveToDrive();
-  } else {
-    // Fallback: storage local
-    try{await window.storage.set('dre_v2',JSON.stringify(dreEntries));}catch(e){}
-    try{await window.storage.set('nf_compras',JSON.stringify(nfRecords));}catch(e){}
-    try{await window.storage.set('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
-  }
+  try{await window.storage.set('dre_v2',JSON.stringify(dreEntries));}catch(e){}
+  try{await window.storage.set('nf_compras',JSON.stringify(nfRecords));}catch(e){}
+  try{await window.storage.set('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
 }
 
 function exportBackup(){
