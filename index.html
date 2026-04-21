@@ -547,9 +547,9 @@ async function init(){
   buildFormSelects();
   setDefaultDates();
   addItem();
-  try{const r=await window.storage.get('dre_v2');if(r)dreEntries=JSON.parse(r.value);}catch(e){dreEntries=[];}
-  try{const r=await window.storage.get('nf_compras');if(r)nfRecords=JSON.parse(r.value);}catch(e){nfRecords=[];}
-  try{const r=await window.storage.get('nf_vendas');if(r)vendaRecords=JSON.parse(r.value);}catch(e){vendaRecords=[];}
+  try{const r=localStorage.getItem('dre_v2');if(r)dreEntries=JSON.parse(r);}catch(e){dreEntries=[];}
+  try{const r=localStorage.getItem('nf_compras');if(r)nfRecords=JSON.parse(r);}catch(e){nfRecords=[];}
+  try{const r=localStorage.getItem('nf_vendas');if(r)vendaRecords=JSON.parse(r);}catch(e){vendaRecords=[];}
 }
 
 function buildFormSelects(){
@@ -1041,6 +1041,16 @@ function renderDRE(){
   </div>`;
 }
 
+function normForn(raw){
+  const map={
+    'Icegustos':'IceGusto','icegustos':'IceGusto',
+    'DG Açaizinho':'Açaizinho','DG Acaizinho':'Açaizinho',
+    'Los Los (PPPP)':'Los Los','Los Los':'Los Los',
+    'Gelateria Antártica':'Ygloo','Gelateria Antarctica':'Ygloo',
+  };
+  return map[raw]||raw;
+}
+
 function renderDREFornecedor(){
   const key=dreKey();
   const d=calcMonth(key);
@@ -1049,27 +1059,34 @@ function renderDREFornecedor(){
   if(!d.me.length){
     c.innerHTML=`<div class="empty"><div class="empty-icon">📊</div><p>Nenhum lançamento em ${mkl(key)}.</p></div>`;return;
   }
+  // De-para: agrega revenda por nome normalizado
   const revMap={},cmvMap={};
-  d.me.filter(e=>e.tipo==='rev_revenda').forEach(e=>{const f=e.fornecedor||'Sem fornecedor';revMap[f]=(revMap[f]||0)+e.valor;});
-  d.me.filter(e=>e.tipo==='cmv_revenda').forEach(e=>{const f=e.fornecedor||'Sem fornecedor';cmvMap[f]=(cmvMap[f]||0)+e.valor;});
+  d.me.filter(e=>e.tipo==='rev_revenda').forEach(e=>{const f=normForn(e.fornecedor||'Sem fornecedor');revMap[f]=(revMap[f]||0)+e.valor;});
+  d.me.filter(e=>e.tipo==='cmv_revenda').forEach(e=>{const f=normForn(e.fornecedor||'Sem fornecedor');cmvMap[f]=(cmvMap[f]||0)+e.valor;});
+  // Produção Própria + B2B → Gasparetto
+  if(d.recProp||d.cmvProp) {revMap['Gasparetto']=(revMap['Gasparetto']||0)+d.recProp;cmvMap['Gasparetto']=(cmvMap['Gasparetto']||0)+d.cmvProp;}
+  if(d.recB2b) revMap['Gasparetto']=(revMap['Gasparetto']||0)+d.recB2b;
   const fornSet=new Set([...Object.keys(revMap),...Object.keys(cmvMap)]);
-  const mkFornRow=(f,rev,cmv,icon)=>{
+  const mkFornRow=(f,rev,cmv)=>{
     const lb=rev-cmv;
     const gm=rev?lb/rev*100:null;
     const gmCls=gm===null?'gray':gm>=40?'g':gm>=25?'a':'r';
     return`<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center;padding:9px 14px;border-bottom:1px solid #f2f1ee">
-      <span style="font-size:12px;font-weight:600;color:var(--tx);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${icon||''}${f}</span>
+      <span style="font-size:12px;font-weight:600;color:var(--tx);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f}</span>
       <span style="color:var(--g-text);font-family:var(--mono);font-size:12px;text-align:right;min-width:68px">${rev?fmt(rev):'—'}</span>
       <span style="color:var(--r-text);font-family:var(--mono);font-size:12px;text-align:right;min-width:68px">${cmv?fmt(cmv):'—'}</span>
       <span style="color:${lb>=0?'var(--g-text)':'var(--r-text)'};font-family:var(--mono);font-size:12px;font-weight:600;text-align:right;min-width:68px">${fmt(lb)}</span>
       <span class="pill ${gmCls}" style="min-width:46px;justify-content:center;text-align:center">${gm===null?'—':gm.toFixed(1)+'%'}</span>
     </div>`;
   };
-  const fornRows=[...fornSet].sort((a,b)=>((revMap[b]||0)-(cmvMap[b]||0))-((revMap[a]||0)-(cmvMap[a]||0)))
-    .map(f=>mkFornRow(f,revMap[f]||0,cmvMap[f]||0,''))
-    .join('');
-  const propRow=mkFornRow('Produção Própria',d.recProp,d.cmvProp,'🍦 ');
-  const b2bRow=d.recB2b?mkFornRow('B2B',d.recB2b,0,'🤝 '):'';
+  const ORDER=['Gasparetto','Ygloo','Ice Tasty','Cream Color','Los Los','IceGusto','Açaizinho','Boa Chá','FFood','Gulos'];
+  const sorted=[...fornSet].sort((a,b)=>{
+    const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
+    if(ia>=0&&ib>=0)return ia-ib;
+    if(ia>=0)return-1;if(ib>=0)return 1;
+    return((revMap[b]||0)-(cmvMap[b]||0))-((revMap[a]||0)-(cmvMap[a]||0));
+  });
+  const fornRows=sorted.map(f=>mkFornRow(f,revMap[f]||0,cmvMap[f]||0)).join('');
   const ebitdaPct=d.totalRec?d.ebitda/d.totalRec*100:0;
   const liqPct=d.totalRec?d.liquido/d.totalRec*100:0;
   const hdr=(t,col)=>`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:${col||'var(--tx3)'};text-align:right">${t}</span>`;
@@ -1084,7 +1101,7 @@ function renderDREFornecedor(){
       <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3)">Fornecedor</span>
       ${hdr('Receita','var(--g-text)')}${hdr('CMV','var(--r-text)')}${hdr('L. Bruto')}${hdr('GM%')}
     </div>
-    ${fornRows}${propRow}${b2bRow}
+    ${fornRows}
     <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:var(--surf2)">
       <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2)">Lucro Bruto Total</span>
       <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${d.lb>=0?'var(--g-text)':'var(--r-text)'}">${fmt(d.lb)} <span style="font-size:11px;font-weight:400;color:var(--tx3)">(${pct(d.lb,d.totalRec)})</span></span>
@@ -1314,9 +1331,9 @@ function renderEstoque(){
 
 // ══ HELPERS ══
 async function saveAll(){
-  try{await window.storage.set('dre_v2',JSON.stringify(dreEntries));}catch(e){}
-  try{await window.storage.set('nf_compras',JSON.stringify(nfRecords));}catch(e){}
-  try{await window.storage.set('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
+  try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
+  try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
+  try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
 }
 
 function exportBackup(){
