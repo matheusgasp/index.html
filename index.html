@@ -220,6 +220,16 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 .empty{text-align:center;padding:36px 20px;color:var(--tx3)}
 .empty-icon{font-size:28px;margin-bottom:8px}
 
+/* SYNC STATUS */
+.sync-bar{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:500;position:absolute;top:14px;right:14px;transition:all .3s}
+.sync-bar.ok{background:rgba(34,197,94,.18);color:#4ade80}
+.sync-bar.saving{background:rgba(255,255,255,.15);color:rgba(255,255,255,.7)}
+.sync-bar.loading{background:rgba(255,255,255,.15);color:rgba(255,255,255,.7)}
+.sync-bar.err{background:rgba(239,68,68,.2);color:#fca5a5}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.sync-dot.pulse{animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
 @media(max-width:420px){
   .strip{grid-template-columns:1fr 1fr}
   .strip .sc:last-child{grid-column:span 2}
@@ -230,6 +240,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 <body>
 
 <div class="hd">
+  <div id="sync-bar" class="sync-bar loading"><div class="sync-dot pulse"></div><span id="sync-lbl">carregando…</span></div>
   <div class="hd-eye">Atacadão do Sorvete · Matriz</div>
   <div class="hd-title">🍦 Gestão Financeira</div>
   <div class="tabs">
@@ -542,14 +553,44 @@ let dreYear=new Date().getFullYear();
 let dreView='detalhado';
 let itemCount=0;
 
+// ── CONFIG ──
+const GAS_URL='https://script.google.com/macros/s/AKfycbxnMTk0p6H3hGKLq8K-kYOmBi2y--7ZPzwO3zPszEQRXJThNOoXVAOf9vZnUz1Ki9va/exec';
+
+function setSyncStatus(state,msg){
+  const bar=document.getElementById('sync-bar');
+  const lbl=document.getElementById('sync-lbl');
+  const dot=bar.querySelector('.sync-dot');
+  bar.className='sync-bar '+state;
+  dot.className='sync-dot'+(state==='saving'||state==='loading'?' pulse':'');
+  lbl.textContent=msg||{ok:'sincronizado',saving:'salvando…',loading:'carregando…',err:'erro — dados locais'}[state]||state;
+}
+
 // ── INIT ──
 async function init(){
   buildFormSelects();
   setDefaultDates();
   addItem();
+  // Carrega do cache local imediatamente para UI responder rápido
   try{const r=localStorage.getItem('dre_v2');if(r)dreEntries=JSON.parse(r);}catch(e){dreEntries=[];}
   try{const r=localStorage.getItem('nf_compras');if(r)nfRecords=JSON.parse(r);}catch(e){nfRecords=[];}
   try{const r=localStorage.getItem('nf_vendas');if(r)vendaRecords=JSON.parse(r);}catch(e){vendaRecords=[];}
+  // Depois busca do Drive (fonte de verdade)
+  setSyncStatus('loading');
+  try{
+    const res=await fetch(GAS_URL,{redirect:'follow'});
+    const data=await res.json();
+    if(data&&typeof data==='object'&&!data.error){
+      dreEntries=Array.isArray(data.dreEntries)?data.dreEntries:dreEntries;
+      nfRecords=Array.isArray(data.nfRecords)?data.nfRecords:nfRecords;
+      vendaRecords=Array.isArray(data.vendaRecords)?data.vendaRecords:vendaRecords;
+      try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
+      try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
+      try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
+    }
+    setSyncStatus('ok');
+  }catch(e){
+    setSyncStatus('err');
+  }
 }
 
 function buildFormSelects(){
@@ -1331,9 +1372,19 @@ function renderEstoque(){
 
 // ══ HELPERS ══
 async function saveAll(){
+  // Cache local imediato
   try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
   try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
   try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
+  // Salva no Drive
+  setSyncStatus('saving');
+  try{
+    const payload={dreEntries,nfRecords,vendaRecords};
+    await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
+    setSyncStatus('ok');
+  }catch(e){
+    setSyncStatus('err');
+  }
 }
 
 function exportBackup(){
