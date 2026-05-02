@@ -220,16 +220,6 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 .empty{text-align:center;padding:36px 20px;color:var(--tx3)}
 .empty-icon{font-size:28px;margin-bottom:8px}
 
-/* SYNC STATUS */
-.sync-bar{display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:10px;font-weight:500;position:absolute;top:14px;right:14px;transition:all .3s}
-.sync-bar.ok{background:rgba(34,197,94,.18);color:#4ade80}
-.sync-bar.saving{background:rgba(255,255,255,.15);color:rgba(255,255,255,.7)}
-.sync-bar.loading{background:rgba(255,255,255,.15);color:rgba(255,255,255,.7)}
-.sync-bar.err{background:rgba(239,68,68,.2);color:#fca5a5}
-.sync-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
-.sync-dot.pulse{animation:pulse 1.2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-
 @media(max-width:420px){
   .strip{grid-template-columns:1fr 1fr}
   .strip .sc:last-child{grid-column:span 2}
@@ -240,7 +230,6 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 <body>
 
 <div class="hd">
-  <div id="sync-bar" class="sync-bar loading"><div class="sync-dot pulse"></div><span id="sync-lbl">carregando…</span></div>
   <div class="hd-eye">Atacadão do Sorvete · Matriz</div>
   <div class="hd-title">🍦 Gestão Financeira</div>
   <div class="tabs">
@@ -265,10 +254,10 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
         <select id="nf-forn">
           <option value="">— selecione —</option>
           <option value="Los Los (PPPP)">Los Los (PPPP)</option>
-          <option value="Gelateria Antártica">Gelateria Antártica</option>
+          <option value="Ygloo">Ygloo</option>
           <option value="Cream Color">Cream Color</option>
           <option value="Ice Tasty">Ice Tasty</option>
-          <option value="Icegustos">Icegustos</option>
+          <option value="IceGusto">IceGusto</option>
           <option value="Boa Chá">Boa Chá</option>
           <option value="DG Açaizinho">DG Açaizinho</option>
           <option value="Outro">Outro</option>
@@ -365,10 +354,24 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     </div>
     <div class="field">
       <label>Tipo de receita</label>
-      <select id="v-tipo">
+      <select id="v-tipo" onchange="onVendaTipoChange()">
         <option value="rev_revenda">Revenda</option>
         <option value="rev_propria">Produção Própria</option>
         <option value="rev_b2b">Boleto B2B</option>
+      </select>
+    </div>
+    <div class="field" id="v-forn-wrap">
+      <label>Fornecedor <span style="color:var(--r-text);font-size:10px">obrigatório</span></label>
+      <select id="v-forn">
+        <option value="">— selecione —</option>
+        <option value="Los Los (PPPP)">Los Los (PPPP)</option>
+        <option value="Ygloo">Ygloo</option>
+        <option value="Cream Color">Cream Color</option>
+        <option value="Ice Tasty">Ice Tasty</option>
+        <option value="IceGusto">IceGusto</option>
+        <option value="Boa Chá">Boa Chá</option>
+        <option value="DG Açaizinho">DG Açaizinho</option>
+        <option value="Outro">Outro</option>
       </select>
     </div>
     <button class="btn-primary" onclick="saveVenda()">Registrar venda → lança Receita no DRE</button>
@@ -424,7 +427,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 
     <div class="field">
       <label>Valor (R$)</label>
-      <input type="number" id="d-valor" placeholder="0,00" step="0.01">
+      <input type="number" id="d-valor" placeholder="0,00" step="0.01" min="0">
     </div>
 
     <button class="btn-primary" onclick="saveDespesa()">+ Adicionar lançamento</button>
@@ -531,16 +534,16 @@ const SUBTYPES_DESP=[
   {v:'manut',l:'Manutenção / Combustível'},{v:'outros',l:'Outros'},
 ];
 const FORN_GM={
-  'Gelateria Antártica':{min:40,max:52,label:'40–52%'},
+  'Ygloo':{min:40,max:52,label:'40–52%'},
   'Los Los (PPPP)':{min:29,max:53,label:'29–53%'},
   'Cream Color':{min:30,max:45,label:'30–45%'},
   'Ice Tasty':{min:30,max:50,label:'30–50%'},
-  'Icegustos':{min:38,max:47,label:'38–47%'},
+  'IceGusto':{min:38,max:47,label:'38–47%'},
   'Boa Chá':{min:19,max:31,label:'19–31%'},
   'DG Açaizinho':{min:43,max:58,label:'43–58%'},
 };
 const TIPOS_VALIDOS=Object.keys(TIPOS_META);
-const FORNECEDORES_VALIDOS=['Gelateria Antártica','Los Los (PPPP)','Cream Color','Ice Tasty','Icegustos','Boa Chá','DG Açaizinho','Outro'];
+const FORNECEDORES_VALIDOS=['Ygloo','Los Los (PPPP)','Cream Color','Ice Tasty','IceGusto','Boa Chá','DG Açaizinho','Outro'];
 
 let dreEntries=[];
 let nfRecords=[];
@@ -553,44 +556,14 @@ let dreYear=new Date().getFullYear();
 let dreView='detalhado';
 let itemCount=0;
 
-// ── CONFIG ──
-const GAS_URL='https://script.google.com/macros/s/AKfycbxnMTk0p6H3hGKLq8K-kYOmBi2y--7ZPzwO3zPszEQRXJThNOoXVAOf9vZnUz1Ki9va/exec';
-
-function setSyncStatus(state,msg){
-  const bar=document.getElementById('sync-bar');
-  const lbl=document.getElementById('sync-lbl');
-  const dot=bar.querySelector('.sync-dot');
-  bar.className='sync-bar '+state;
-  dot.className='sync-dot'+(state==='saving'||state==='loading'?' pulse':'');
-  lbl.textContent=msg||{ok:'sincronizado',saving:'salvando…',loading:'carregando…',err:'erro — dados locais'}[state]||state;
-}
-
 // ── INIT ──
 async function init(){
   buildFormSelects();
   setDefaultDates();
   addItem();
-  // Carrega do cache local imediatamente para UI responder rápido
-  try{const r=localStorage.getItem('dre_v2');if(r)dreEntries=JSON.parse(r);}catch(e){dreEntries=[];}
-  try{const r=localStorage.getItem('nf_compras');if(r)nfRecords=JSON.parse(r);}catch(e){nfRecords=[];}
-  try{const r=localStorage.getItem('nf_vendas');if(r)vendaRecords=JSON.parse(r);}catch(e){vendaRecords=[];}
-  // Depois busca do Drive (fonte de verdade)
-  setSyncStatus('loading');
-  try{
-    const res=await fetch(GAS_URL,{redirect:'follow'});
-    const data=await res.json();
-    if(data&&typeof data==='object'&&!data.error){
-      dreEntries=Array.isArray(data.dreEntries)?data.dreEntries:dreEntries;
-      nfRecords=Array.isArray(data.nfRecords)?data.nfRecords:nfRecords;
-      vendaRecords=Array.isArray(data.vendaRecords)?data.vendaRecords:vendaRecords;
-      try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
-      try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
-      try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
-    }
-    setSyncStatus('ok');
-  }catch(e){
-    setSyncStatus('err');
-  }
+  try{const r=await window.storage.get('dre_v2');if(r)dreEntries=JSON.parse(r.value);}catch(e){dreEntries=[];}
+  try{const r=await window.storage.get('nf_compras');if(r)nfRecords=JSON.parse(r.value);}catch(e){nfRecords=[];}
+  try{const r=await window.storage.get('nf_vendas');if(r)vendaRecords=JSON.parse(r.value);}catch(e){vendaRecords=[];}
 }
 
 function buildFormSelects(){
@@ -821,6 +794,13 @@ function calcVendaTotal(){
   if(qtd&&unit) document.getElementById('v-valor').value=(qtd*unit).toFixed(2);
 }
 
+function onVendaTipoChange(){
+  const tipo=document.getElementById('v-tipo').value;
+  const wrap=document.getElementById('v-forn-wrap');
+  wrap.style.display=tipo==='rev_revenda'?'block':'none';
+  if(tipo!=='rev_revenda') document.getElementById('v-forn').value='';
+}
+
 async function saveVenda(){
   const data=document.getElementById('v-data').value;
   const desc=document.getElementById('v-desc').value.trim();
@@ -828,21 +808,24 @@ async function saveVenda(){
   const unit=parseFloat(document.getElementById('v-unit').value)||0;
   const valor=parseFloat(document.getElementById('v-valor').value)||0;
   const tipo=document.getElementById('v-tipo').value;
+  const forn=document.getElementById('v-forn').value;
   if(!desc){alert('Informe o produto.');return;}
   if(!valor){alert('Informe o valor.');return;}
   if(!data){alert('Informe a data.');return;}
+  if(tipo==='rev_revenda'&&!forn){alert('Selecione o fornecedor para venda de revenda.');return;}
 
   const vendaId='venda-'+Date.now();
   const month=data.slice(0,7);
+  const fornecedor=forn||'';
 
   vendaRecords.push({
     id:vendaId,data,month,descricao:desc,quantidade:qtd,
-    valor_unit:unit,valor_total:valor,tipo,criadoEm:new Date().toISOString()
+    valor_unit:unit,valor_total:valor,tipo,fornecedor,criadoEm:new Date().toISOString()
   });
 
   dreEntries.push({
     id:'dre-'+Date.now(),source:'venda',source_id:vendaId,
-    month,tipo,subtipo:'',descricao:desc,valor,criadoEm:new Date().toISOString()
+    month,tipo,subtipo:'',descricao:desc,valor,fornecedor,criadoEm:new Date().toISOString()
   });
 
   await saveAll();
@@ -850,6 +833,7 @@ async function saveVenda(){
   document.getElementById('v-qtd').value='';
   document.getElementById('v-unit').value='';
   document.getElementById('v-valor').value='';
+  document.getElementById('v-forn').value='';
   showToast('toast-venda','✓ Venda registrada e receita lançada no DRE!');
   renderVendasList();
 }
@@ -867,7 +851,7 @@ function renderVendasList(){
         <div class="hdot" style="background:var(--y)"></div>
         <div class="hinfo">
           <div class="hdesc">${v.descricao}</div>
-          <div class="htipo">${v.data}${v.quantidade?' · Qtd: '+v.quantidade:''} · ${TIPOS_META[v.tipo]?.label||v.tipo}</div>
+          <div class="htipo">${v.data}${v.fornecedor?' · '+v.fornecedor:''}${v.quantidade?' · Qtd: '+v.quantidade:''} · ${TIPOS_META[v.tipo]?.label||v.tipo}</div>
         </div>
         <div class="hval" style="color:var(--g-text)">R$ ${v.valor_total.toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
         <button class="hdel" onclick="delVenda('${v.id}')">×</button>
@@ -912,7 +896,7 @@ async function saveDespesa(){
   const year=parseInt(document.getElementById('d-year').value);
   const valor=parseFloat(document.getElementById('d-valor').value);
   if(!tipo){alert('Selecione o tipo.');return;}
-  if(!valor||valor===0){alert('Valor inválido.');return;}
+  if(!valor||valor<=0){alert('Valor inválido.');return;}
 
   let subtipo='',descricao='';
   if(tipo==='despesa'){
@@ -950,7 +934,7 @@ async function importDREJSON(){
     if(!item.month||!/^\d{4}-\d{2}$/.test(item.month)){erros.push(`Item ${n}: "month" inválido (AAAA-MM)`);return;}
     if(!item.tipo||!TIPOS_VALIDOS.includes(item.tipo)){erros.push(`Item ${n}: "tipo" inválido`);return;}
     const val=parseFloat(item.valor);
-    if(!val||val===0){erros.push(`Item ${n}: "valor" inválido`);return;}
+    if(!val||val<=0){erros.push(`Item ${n}: "valor" inválido`);return;}
     novos.push({
       id:'dre-batch-'+Date.now()+'-'+n,source:'manual',
       month:item.month,tipo:item.tipo,subtipo:item.subtipo||'',
@@ -1082,16 +1066,6 @@ function renderDRE(){
   </div>`;
 }
 
-function normForn(raw){
-  const map={
-    'Icegustos':'IceGusto','icegustos':'IceGusto',
-    'DG Açaizinho':'Açaizinho','DG Acaizinho':'Açaizinho',
-    'Los Los (PPPP)':'Los Los','Los Los':'Los Los',
-    'Gelateria Antártica':'Ygloo','Gelateria Antarctica':'Ygloo',
-  };
-  return map[raw]||raw;
-}
-
 function renderDREFornecedor(){
   const key=dreKey();
   const d=calcMonth(key);
@@ -1100,34 +1074,27 @@ function renderDREFornecedor(){
   if(!d.me.length){
     c.innerHTML=`<div class="empty"><div class="empty-icon">📊</div><p>Nenhum lançamento em ${mkl(key)}.</p></div>`;return;
   }
-  // De-para: agrega revenda por nome normalizado
   const revMap={},cmvMap={};
-  d.me.filter(e=>e.tipo==='rev_revenda').forEach(e=>{const f=normForn(e.fornecedor||'Sem fornecedor');revMap[f]=(revMap[f]||0)+e.valor;});
-  d.me.filter(e=>e.tipo==='cmv_revenda').forEach(e=>{const f=normForn(e.fornecedor||'Sem fornecedor');cmvMap[f]=(cmvMap[f]||0)+e.valor;});
-  // Produção Própria + B2B → Gasparetto
-  if(d.recProp||d.cmvProp) {revMap['Gasparetto']=(revMap['Gasparetto']||0)+d.recProp;cmvMap['Gasparetto']=(cmvMap['Gasparetto']||0)+d.cmvProp;}
-  if(d.recB2b) revMap['Gasparetto']=(revMap['Gasparetto']||0)+d.recB2b;
+  d.me.filter(e=>e.tipo==='rev_revenda').forEach(e=>{const f=e.fornecedor||'Sem fornecedor';revMap[f]=(revMap[f]||0)+e.valor;});
+  d.me.filter(e=>e.tipo==='cmv_revenda').forEach(e=>{const f=e.fornecedor||'Sem fornecedor';cmvMap[f]=(cmvMap[f]||0)+e.valor;});
   const fornSet=new Set([...Object.keys(revMap),...Object.keys(cmvMap)]);
-  const mkFornRow=(f,rev,cmv)=>{
+  const mkFornRow=(f,rev,cmv,icon)=>{
     const lb=rev-cmv;
     const gm=rev?lb/rev*100:null;
     const gmCls=gm===null?'gray':gm>=40?'g':gm>=25?'a':'r';
     return`<div style="display:grid;grid-template-columns:1fr auto auto auto auto;gap:6px;align-items:center;padding:9px 14px;border-bottom:1px solid #f2f1ee">
-      <span style="font-size:12px;font-weight:600;color:var(--tx);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f}</span>
+      <span style="font-size:12px;font-weight:600;color:var(--tx);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${icon||''}${f}</span>
       <span style="color:var(--g-text);font-family:var(--mono);font-size:12px;text-align:right;min-width:68px">${rev?fmt(rev):'—'}</span>
       <span style="color:var(--r-text);font-family:var(--mono);font-size:12px;text-align:right;min-width:68px">${cmv?fmt(cmv):'—'}</span>
       <span style="color:${lb>=0?'var(--g-text)':'var(--r-text)'};font-family:var(--mono);font-size:12px;font-weight:600;text-align:right;min-width:68px">${fmt(lb)}</span>
       <span class="pill ${gmCls}" style="min-width:46px;justify-content:center;text-align:center">${gm===null?'—':gm.toFixed(1)+'%'}</span>
     </div>`;
   };
-  const ORDER=['Gasparetto','Ygloo','Ice Tasty','Cream Color','Los Los','IceGusto','Açaizinho','Boa Chá','FFood','Gulos'];
-  const sorted=[...fornSet].sort((a,b)=>{
-    const ia=ORDER.indexOf(a),ib=ORDER.indexOf(b);
-    if(ia>=0&&ib>=0)return ia-ib;
-    if(ia>=0)return-1;if(ib>=0)return 1;
-    return((revMap[b]||0)-(cmvMap[b]||0))-((revMap[a]||0)-(cmvMap[a]||0));
-  });
-  const fornRows=sorted.map(f=>mkFornRow(f,revMap[f]||0,cmvMap[f]||0)).join('');
+  const fornRows=[...fornSet].sort((a,b)=>((revMap[b]||0)-(cmvMap[b]||0))-((revMap[a]||0)-(cmvMap[a]||0)))
+    .map(f=>mkFornRow(f,revMap[f]||0,cmvMap[f]||0,''))
+    .join('');
+  const propRow=mkFornRow('Produção Própria',d.recProp,d.cmvProp,'🍦 ');
+  const b2bRow=d.recB2b?mkFornRow('B2B',d.recB2b,0,'🤝 '):'';
   const ebitdaPct=d.totalRec?d.ebitda/d.totalRec*100:0;
   const liqPct=d.totalRec?d.liquido/d.totalRec*100:0;
   const hdr=(t,col)=>`<span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:${col||'var(--tx3)'};text-align:right">${t}</span>`;
@@ -1142,7 +1109,7 @@ function renderDREFornecedor(){
       <span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3)">Fornecedor</span>
       ${hdr('Receita','var(--g-text)')}${hdr('CMV','var(--r-text)')}${hdr('L. Bruto')}${hdr('GM%')}
     </div>
-    ${fornRows}
+    ${fornRows}${propRow}${b2bRow}
     <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:var(--surf2)">
       <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx2)">Lucro Bruto Total</span>
       <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${d.lb>=0?'var(--g-text)':'var(--r-text)'}">${fmt(d.lb)} <span style="font-size:11px;font-weight:400;color:var(--tx3)">(${pct(d.lb,d.totalRec)})</span></span>
@@ -1176,39 +1143,86 @@ function renderMixGM(c){
   const allMonths=[...new Set(dreEntries.map(e=>e.month))].sort().reverse().slice(0,3);
   if(!allMonths.length){c.innerHTML=`<div class="empty"><div class="empty-icon">📈</div><p>Lance CMV por fornecedor para ver o Mix.</p></div>`;return;}
   const curKey=allMonths[0],prevKey=allMonths[1];
+
+  // CMV por fornecedor — mês atual e anterior
   const curE=dreEntries.filter(e=>e.month===curKey&&e.tipo==='cmv_revenda');
   const prevE=dreEntries.filter(e=>e.month===prevKey&&e.tipo==='cmv_revenda');
   const fornCur={},fornPrev={};
   curE.forEach(e=>{const f=e.fornecedor||'Outro';fornCur[f]=(fornCur[f]||0)+e.valor;});
   prevE.forEach(e=>{const f=e.fornecedor||'Outro';fornPrev[f]=(fornPrev[f]||0)+e.valor;});
   const totalCur=Object.values(fornCur).reduce((a,b)=>a+b,0);
+
+  // Receita por fornecedor — mês atual (lançamentos com campo fornecedor em rev_revenda)
+  const revFornCur={};
+  dreEntries.filter(e=>e.month===curKey&&e.tipo==='rev_revenda'&&e.fornecedor)
+    .forEach(e=>{const f=e.fornecedor;revFornCur[f]=(revFornCur[f]||0)+e.valor;});
+
+  // GM% real agregada revenda do mês atual
+  const totalRevRevenda=dreEntries.filter(e=>e.month===curKey&&e.tipo==='rev_revenda').reduce((a,e)=>a+e.valor,0);
+  const totalCMVRevenda=dreEntries.filter(e=>e.month===curKey&&e.tipo==='cmv_revenda').reduce((a,e)=>a+e.valor,0);
+  const gmRealAgregado=totalRevRevenda>0?((totalRevRevenda-totalCMVRevenda)/totalRevRevenda*100):null;
+
   const allForn=[...new Set([...Object.keys(fornCur),...Object.keys(FORN_GM)])];
+  // Resolve GM% por fornecedor: real se tiver receita tagueada, senão referência estimada
+  function resolveGM(f){
+    const rev=revFornCur[f]||0;
+    const cmv=fornCur[f]||0;
+    if(rev>0&&cmv>0){
+      const gm=(rev-cmv)/rev*100;
+      return{val:gm,label:gm.toFixed(1)+'%',isReal:true};
+    }
+    const ref=FORN_GM[f];
+    if(ref){const mid=(ref.min+ref.max)/2;return{val:mid,label:ref.label,isReal:false};}
+    return{val:30,label:'?',isReal:false};
+  }
+
   let rows='';
   allForn.filter(f=>fornCur[f]).sort((a,b)=>(fornCur[b]||0)-(fornCur[a]||0)).forEach(f=>{
     const cur=fornCur[f]||0,prev=fornPrev[f]||0;
     const share=totalCur?((cur/totalCur)*100).toFixed(0)+'%':'—';
-    const gm=FORN_GM[f];const gmLabel=gm?gm.label:'?';const gmMid=gm?(gm.min+gm.max)/2:30;
-    const gmClass=gmMid>=40?'g':gmMid>=25?'a':'r';
+    const gm=resolveGM(f);
+    const gmClass=gm.val>=40?'g':gm.val>=25?'a':'r';
+    const badge=gm.isReal
+      ?`<span class="pill ${gmClass}">${gm.label}</span> <span style="font-size:9px;color:var(--g-text);font-weight:600">real</span>`
+      :`<span class="pill ${gmClass}">${gm.label}</span> <span style="font-size:9px;color:var(--tx3)">est.</span>`;
     let trend='<span style="color:var(--tx3)">→</span>';
     if(prev>0){const diff=((cur-prev)/prev)*100;
       if(diff>5)trend=`<span style="color:var(--r-text)">↑ ${diff.toFixed(0)}%</span>`;
       else if(diff<-5)trend=`<span style="color:var(--g-text)">↓ ${Math.abs(diff).toFixed(0)}%</span>`;
     }
-    rows+=`<tr><td><strong style="font-size:12px">${f}</strong></td><td>${share}</td><td><span class="pill ${gmClass}">${gmLabel}</span></td><td style="font-size:11px">${trend}</td></tr>`;
+    rows+=`<tr><td><strong style="font-size:12px">${f}</strong></td><td>${share}</td><td style="white-space:nowrap">${badge}</td><td style="font-size:11px">${trend}</td></tr>`;
   });
-  const worstForn=allForn.filter(f=>fornCur[f]&&FORN_GM[f]).sort((a,b)=>(FORN_GM[a].min+FORN_GM[a].max)/2-(FORN_GM[b].min+FORN_GM[b].max)/2)[0];
-  const bestForn=allForn.filter(f=>fornCur[f]&&FORN_GM[f]).sort((a,b)=>(FORN_GM[b].min+FORN_GM[b].max)/2-(FORN_GM[a].min+FORN_GM[a].max)/2)[0];
+
+  // Insights: usa GM real se disponível, senão referência
+  const fornComDados=allForn.filter(f=>fornCur[f]);
+  const sorted=fornComDados.map(f=>({f,gm:resolveGM(f)})).sort((a,b)=>b.gm.val-a.gm.val);
+  const bestF=sorted[0],worstF=sorted[sorted.length-1];
   let insights='';
-  if(bestForn)insights+=`<div class="mix-insight">🟢 <strong>${bestForn}</strong> é seu fornecedor de maior margem (${FORN_GM[bestForn].label}). Priorize no mix de compra.</div>`;
-  if(worstForn)insights+=`<div class="mix-insight">🔴 <strong>${worstForn}</strong> tem a menor margem (${FORN_GM[worstForn].label}). Avalie renegociar ou reduzir volume.</div>`;
+  if(gmRealAgregado!==null){
+    const gmCls=gmRealAgregado>=40?'var(--g-text)':gmRealAgregado>=25?'var(--a-text)':'var(--r-text)';
+    insights+=`<div class="mix-insight">📊 <strong>GM Bruta Real do mês (revenda):</strong> <span style="font-family:var(--mono);color:${gmCls};font-weight:600">${gmRealAgregado.toFixed(1)}%</span> — calculado com a receita e o CMV do período.</div>`;
+  }
+  if(bestF&&bestF!==worstF){
+    const tag=bestF.gm.isReal?'real':'est.';
+    insights+=`<div class="mix-insight">🟢 <strong>${bestF.f}</strong> lidera em margem (${bestF.gm.label} ${tag}). Priorize no mix de compra.</div>`;
+  }
+  if(worstF&&bestF!==worstF){
+    const tag=worstF.gm.isReal?'real':'est.';
+    insights+=`<div class="mix-insight">🔴 <strong>${worstF.f}</strong> tem a menor margem (${worstF.gm.label} ${tag}). Avalie renegociar ou reduzir volume.</div>`;
+  }
+
+  const hasEstimated=fornComDados.some(f=>!resolveGM(f).isReal);
+  const footNote=hasEstimated?`<div style="font-size:10px;color:var(--tx3);padding:8px 14px;border-top:1px solid var(--bd)"><strong>est.</strong> = faixa de referência por fornecedor · <strong>real</strong> = calculado com receita tagueada no DRE</div>`:'';
+
   c.innerHTML=`
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <span class="pill g">≥ 40% · ótimo</span><span class="pill a">25–39% · atenção</span><span class="pill r">< 25% · rever</span>
     </div>
     ${insights}
     <div class="card" style="padding:0;overflow:hidden">
-      <table class="mix-table"><thead><tr><th>Fornecedor</th><th>% CMV</th><th>GM% ref.</th><th>vs ant.</th></tr></thead>
+      <table class="mix-table"><thead><tr><th>Fornecedor</th><th>% CMV</th><th>GM%</th><th>vs ant.</th></tr></thead>
       <tbody>${rows||'<tr><td colspan="4" style="text-align:center;color:var(--tx3);padding:20px">Nenhum dado</td></tr>'}</tbody></table>
+      ${footNote}
     </div>`;
 }
 
@@ -1372,19 +1386,9 @@ function renderEstoque(){
 
 // ══ HELPERS ══
 async function saveAll(){
-  // Cache local imediato
-  try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
-  try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
-  try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
-  // Salva no Drive
-  setSyncStatus('saving');
-  try{
-    const payload={dreEntries,nfRecords,vendaRecords};
-    await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
-    setSyncStatus('ok');
-  }catch(e){
-    setSyncStatus('err');
-  }
+  try{await window.storage.set('dre_v2',JSON.stringify(dreEntries));}catch(e){}
+  try{await window.storage.set('nf_compras',JSON.stringify(nfRecords));}catch(e){}
+  try{await window.storage.set('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
 }
 
 function exportBackup(){
