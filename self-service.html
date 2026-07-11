@@ -118,7 +118,7 @@
     position:relative;
   }
   .scale::before{
-    content:"balança";
+    content:"venda";
     position:absolute;
     top:8px; left:14px;
     font-size:9px;
@@ -402,14 +402,14 @@
     <input type="date" id="dateInput">
 
     <div class="scale">
-      <input type="number" id="kgInput" inputmode="decimal" step="0.001" min="0" placeholder="0,000">
-      <span class="unit">kg</span>
+      <span class="unit">R$</span>
+      <input type="number" id="receitaInput" inputmode="decimal" step="0.01" min="0" placeholder="0,00">
     </div>
     <div class="price-tag" id="priceTag"></div>
 
     <div class="revenue-line">
-      <span class="label">Receita do dia</span>
-      <span class="value" id="revenueOut">R$ 0,00</span>
+      <span class="label">Peso equivalente</span>
+      <span class="value" id="kgOut">0,000 kg</span>
     </div>
 
     <button class="primary" id="saveBtn">Salvar venda de hoje</button>
@@ -465,8 +465,8 @@
 
   const $ = (id) => document.getElementById(id);
   const dateInput = $('dateInput');
-  const kgInput = $('kgInput');
-  const revenueOut = $('revenueOut');
+  const receitaInput = $('receitaInput');
+  const kgOut = $('kgOut');
   const saveBtn = $('saveBtn');
   const cancelEditBtn = $('cancelEditBtn');
   const priceTag = $('priceTag');
@@ -562,11 +562,11 @@
       : '<b>Configure o preço por kg no ⚙ para começar</b>';
   }
 
-  function recalcRevenue(){
-    const kg = parseFloat((kgInput.value || '').replace(',', '.')) || 0;
-    const rev = pricePerKg ? kg * pricePerKg : 0;
-    revenueOut.textContent = fmtBRL(rev);
-    return rev;
+  function recalcKg(){
+    const receita = parseFloat((receitaInput.value || '').replace(',', '.')) || 0;
+    const kg = pricePerKg ? receita / pricePerKg : 0;
+    kgOut.textContent = fmtKg(kg) + ' kg';
+    return kg;
   }
 
   function renderMonthTitle(){
@@ -644,8 +644,8 @@
   function startEdit(dateStr){
     editingDate = dateStr;
     dateInput.value = dateStr;
-    kgInput.value = entriesAll[dateStr].kg;
-    recalcRevenue();
+    receitaInput.value = entriesAll[dateStr].receita;
+    recalcKg();
     saveBtn.textContent = 'Atualizar lançamento';
     cancelEditBtn.style.display = 'block';
     window.scrollTo({top:0, behavior:'smooth'});
@@ -654,8 +654,8 @@
   function resetForm(){
     editingDate = null;
     dateInput.value = todayStr();
-    kgInput.value = '';
-    recalcRevenue();
+    receitaInput.value = '';
+    recalcKg();
     saveBtn.textContent = 'Salvar venda de hoje';
     cancelEditBtn.style.display = 'none';
   }
@@ -674,12 +674,12 @@
       return;
     }
     const dateStr = dateInput.value || todayStr();
-    const kg = parseFloat((kgInput.value || '').replace(',', '.'));
-    if(!kg || kg <= 0){
-      showToast('Informe um peso válido');
+    const receita = parseFloat((receitaInput.value || '').replace(',', '.'));
+    if(!receita || receita <= 0){
+      showToast('Informe um valor de venda válido');
       return;
     }
-    const receita = kg * pricePerKg;
+    const kg = receita / pricePerKg;
     const isUpdate = !!entriesAll[dateStr];
 
     entriesAll[dateStr] = {kg, receita};
@@ -705,7 +705,7 @@
     modalBg.style.display = 'none';
   }
 
-  kgInput.addEventListener('input', recalcRevenue);
+  receitaInput.addEventListener('input', recalcKg);
   dateInput.addEventListener('change', () => {
     const mk = monthKeyOf(dateInput.value || todayStr());
     if(mk !== currentMonthKey) switchMonth(mk);
@@ -722,7 +722,7 @@
     }
     pricePerKg = v;
     updatePriceTag();
-    recalcRevenue();
+    recalcKg();
     closeModal();
     const ok = await postAction({action:'setPrice', price: v});
     showToast(ok ? ('Preço salvo: ' + fmtBRL(v) + '/kg') : 'Salvo localmente, mas houve falha ao sincronizar');
@@ -751,7 +751,7 @@
     renderMonthTitle();
     const ok = await fetchAll();
     updatePriceTag();
-    recalcRevenue();
+    recalcKg();
     renderSummary();
     renderHistory();
     if(ok && !pricePerKg) openModal();
