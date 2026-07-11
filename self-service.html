@@ -421,7 +421,7 @@
 
     <button class="primary" id="saveBtn">Adicionar venda</button>
     <button class="ghost" id="cancelEditBtn" style="display:none;">Cancelar edição</button>
-    <div class="hint" id="saveHint">Cada venda soma ao total do dia. Pra corrigir o total, use o ✎ na lista abaixo.</div>
+    <div class="hint" id="saveHint">Cada venda vira um lançamento próprio — dá pra editar ou excluir cada uma na lista abaixo.</div>
   </div>
 
   <div class="card">
@@ -498,11 +498,14 @@
 
   let pricePerKg = null;
   let currentMonthKey = null;
-  let entriesAll = {};        // { "YYYY-MM-DD": { kg, receita } } — todos os meses
-  let editingDate = null;
+  let entriesAll = {};        // { id: { date, kg, receita } } — todas as vendas individuais, todos os meses
+  let editingId = null;
 
   const MONTH_NAMES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
+  function generateId(){
+    return Date.now() + '-' + Math.random().toString(36).slice(2,8);
+  }
   function todayStr(){
     const d = new Date();
     return d.toISOString().slice(0,10);
@@ -537,8 +540,8 @@
       pricePerKg = data.price ? parseFloat(data.price) : null;
       entriesAll = {};
       (data.entries || []).forEach(e => {
-        if(!e.date) return;
-        entriesAll[e.date] = { kg: parseFloat(e.kg) || 0, receita: parseFloat(e.receita) || 0 };
+        if(!e.date || !e.id) return;
+        entriesAll[e.id] = { date: e.date, kg: parseFloat(e.kg) || 0, receita: parseFloat(e.receita) || 0 };
       });
       setSync('ok', 'sincronizado');
       return true;
@@ -584,22 +587,25 @@
   }
 
   function entriesForCurrentMonth(){
-    const out = {};
-    Object.keys(entriesAll).forEach(d => {
-      if(monthKeyOf(d) === currentMonthKey) out[d] = entriesAll[d];
-    });
-    return out;
+    // retorna lista de [id, entry] ordenada por data desc, depois por id desc (mais recente primeiro)
+    return Object.keys(entriesAll)
+      .filter(id => monthKeyOf(entriesAll[id].date) === currentMonthKey)
+      .map(id => [id, entriesAll[id]])
+      .sort((a, b) => {
+        if(a[1].date !== b[1].date) return a[1].date < b[1].date ? 1 : -1;
+        return a[0] < b[0] ? 1 : -1;
+      });
   }
 
   function renderSummary(){
     const monthEntries = entriesForCurrentMonth();
-    const dates = Object.keys(monthEntries);
+    const distinctDays = new Set(monthEntries.map(([,e]) => e.date));
     let kgTotal = 0, revTotal = 0;
-    dates.forEach(d => {
-      kgTotal += monthEntries[d].kg;
-      revTotal += monthEntries[d].receita;
+    monthEntries.forEach(([,e]) => {
+      kgTotal += e.kg;
+      revTotal += e.receita;
     });
-    sumDays.textContent = dates.length;
+    sumDays.textContent = distinctDays.size;
     sumKg.textContent = Math.round(kgTotal).toLocaleString('pt-BR');
     sumKg.title = fmtKg(kgTotal) + ' kg';
     sumRevenue.textContent = 'R$' + Math.round(revTotal).toLocaleString('pt-BR');
@@ -608,67 +614,67 @@
 
   function renderHistory(){
     const monthEntries = entriesForCurrentMonth();
-    const dates = Object.keys(monthEntries).sort().reverse();
-    if(dates.length === 0){
-      historyList.innerHTML = '<div class="empty">Nenhum lançamento neste mês ainda.</div>';
+    if(monthEntries.length === 0){
+      historyList.innerHTML = '<div class="empty">Nenhuma venda neste mês ainda.</div>';
       return;
     }
     historyList.innerHTML = '';
-    dates.forEach(d => {
-      const entry = monthEntries[d];
+    monthEntries.forEach(([id, entry]) => {
       const row = document.createElement('div');
       row.className = 'row';
       row.innerHTML =
-        '<div class="date">' + fmtDateShort(d) + '</div>' +
+        '<div class="date">' + fmtDateShort(entry.date) + '</div>' +
         '<div class="nums"><span class="kgv">' + fmtKg(entry.kg) + ' kg</span><span>' + fmtBRL(entry.receita) + '</span></div>' +
         '<div class="actions">' +
-          '<button class="icon-btn edit" title="Editar">✎</button>' +
-          '<button class="icon-btn del" title="Excluir">✕</button>' +
+          '<button class="icon-btn edit" title="Editar esta venda">✎</button>' +
+          '<button class="icon-btn del" title="Excluir esta venda">✕</button>' +
         '</div>';
-      row.querySelector('.edit').addEventListener('click', () => startEdit(d));
-      row.querySelector('.del').addEventListener('click', () => askDelete(d, row));
+      row.querySelector('.edit').addEventListener('click', () => startEdit(id));
+      row.querySelector('.del').addEventListener('click', () => askDelete(id, row));
       historyList.appendChild(row);
     });
   }
 
-  function askDelete(dateStr, rowEl){
+  function askDelete(id, rowEl){
+    const entry = entriesAll[id];
     const confirmRow = document.createElement('div');
     confirmRow.className = 'confirm-row';
-    confirmRow.innerHTML = '<span>Excluir lançamento de ' + fmtDateShort(dateStr) + '?</span>' +
+    confirmRow.innerHTML = '<span>Excluir venda de ' + fmtDateShort(entry.date) + ' (' + fmtBRL(entry.receita) + ')?</span>' +
       '<span><button class="yes">Excluir</button> <span class="cancel">Cancelar</span></span>';
     rowEl.replaceWith(confirmRow);
     confirmRow.querySelector('.yes').addEventListener('click', async () => {
-      delete entriesAll[dateStr];
+      delete entriesAll[id];
       renderSummary();
       renderHistory();
-      if(editingDate === dateStr) resetForm();
-      const ok = await postAction({action:'delete', date: dateStr});
-      showToast(ok ? 'Lançamento excluído' : 'Excluído localmente, mas houve falha ao sincronizar');
+      if(editingId === id) resetForm();
+      const ok = await postAction({action:'delete', id});
+      showToast(ok ? 'Venda excluída' : 'Excluída localmente, mas houve falha ao sincronizar');
     });
     confirmRow.querySelector('.cancel').addEventListener('click', () => {
       renderHistory();
     });
   }
 
-  function startEdit(dateStr){
-    editingDate = dateStr;
-    dateInput.value = dateStr;
-    receitaInput.value = entriesAll[dateStr].receita;
+  function startEdit(id){
+    editingId = id;
+    const entry = entriesAll[id];
+    dateInput.value = entry.date;
+    receitaInput.value = entry.receita;
     recalcKg();
-    saveBtn.textContent = 'Corrigir total do dia';
+    saveBtn.textContent = 'Salvar correção';
     cancelEditBtn.style.display = 'block';
-    saveHint.textContent = 'O valor digitado vai substituir o total desse dia inteiro.';
+    saveHint.textContent = 'Você está corrigindo só esta venda específica.';
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
   function resetForm(){
-    editingDate = null;
+    editingId = null;
     dateInput.value = todayStr();
     receitaInput.value = '';
     recalcKg();
     saveBtn.textContent = 'Adicionar venda';
     cancelEditBtn.style.display = 'none';
-    saveHint.textContent = 'Cada venda soma ao total do dia. Pra corrigir o total, use o ✎ na lista abaixo.';
+    saveHint.textContent = 'Cada venda vira um lançamento próprio — dá pra editar ou excluir cada uma na lista abaixo.';
   }
 
   function switchMonth(monthKey){
@@ -691,19 +697,11 @@
       return;
     }
 
-    const wasEditing = !!editingDate;
-    let novaReceita;
-    if(wasEditing){
-      // Correção manual: o valor digitado substitui o total do dia
-      novaReceita = typedReceita;
-    }else{
-      // Fluxo normal: cada venda soma ao total já registrado no dia
-      const existente = entriesAll[dateStr];
-      novaReceita = (existente ? existente.receita : 0) + typedReceita;
-    }
-    const novoKg = novaReceita / pricePerKg;
+    const isUpdate = !!editingId;
+    const id = editingId || generateId();
+    const kg = typedReceita / pricePerKg;
 
-    entriesAll[dateStr] = {kg: novoKg, receita: novaReceita};
+    entriesAll[id] = {date: dateStr, kg, receita: typedReceita};
     if(monthKeyOf(dateStr) !== currentMonthKey){
       switchMonth(monthKeyOf(dateStr));
     }else{
@@ -713,11 +711,11 @@
     resetForm();
 
     saveBtn.disabled = true;
-    const ok = await postAction({action:'save', date: dateStr, kg: novoKg, receita: novaReceita});
+    const ok = await postAction({action:'save', id, date: dateStr, kg, receita: typedReceita});
     saveBtn.disabled = false;
-    const msg = wasEditing
-      ? 'Total do dia corrigido para ' + fmtBRL(novaReceita)
-      : 'Venda somada — total do dia: ' + fmtBRL(novaReceita);
+    const msg = isUpdate
+      ? 'Venda corrigida: ' + fmtBRL(typedReceita)
+      : 'Venda registrada: ' + fmtBRL(typedReceita);
     showToast(ok ? msg : 'Salvo localmente, mas houve falha ao sincronizar — toque em ↻ para tentar de novo');
   }
 
