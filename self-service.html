@@ -384,6 +384,13 @@
     margin-bottom:14px;
   }
   .price-tag b{ color:var(--ink); }
+  .hint{
+    font-size:11.5px;
+    color:var(--muted);
+    text-align:center;
+    margin-top:10px;
+    line-height:1.4;
+  }
 </style>
 </head>
 <body>
@@ -412,8 +419,9 @@
       <span class="value" id="kgOut">0,000 kg</span>
     </div>
 
-    <button class="primary" id="saveBtn">Salvar venda de hoje</button>
+    <button class="primary" id="saveBtn">Adicionar venda</button>
     <button class="ghost" id="cancelEditBtn" style="display:none;">Cancelar edição</button>
+    <div class="hint" id="saveHint">Cada venda soma ao total do dia. Pra corrigir o total, use o ✎ na lista abaixo.</div>
   </div>
 
   <div class="card">
@@ -469,6 +477,7 @@
   const kgOut = $('kgOut');
   const saveBtn = $('saveBtn');
   const cancelEditBtn = $('cancelEditBtn');
+  const saveHint = $('saveHint');
   const priceTag = $('priceTag');
   const gearBtn = $('gearBtn');
   const modalBg = $('modalBg');
@@ -646,8 +655,9 @@
     dateInput.value = dateStr;
     receitaInput.value = entriesAll[dateStr].receita;
     recalcKg();
-    saveBtn.textContent = 'Atualizar lançamento';
+    saveBtn.textContent = 'Corrigir total do dia';
     cancelEditBtn.style.display = 'block';
+    saveHint.textContent = 'O valor digitado vai substituir o total desse dia inteiro.';
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
@@ -656,8 +666,9 @@
     dateInput.value = todayStr();
     receitaInput.value = '';
     recalcKg();
-    saveBtn.textContent = 'Salvar venda de hoje';
+    saveBtn.textContent = 'Adicionar venda';
     cancelEditBtn.style.display = 'none';
+    saveHint.textContent = 'Cada venda soma ao total do dia. Pra corrigir o total, use o ✎ na lista abaixo.';
   }
 
   function switchMonth(monthKey){
@@ -674,15 +685,25 @@
       return;
     }
     const dateStr = dateInput.value || todayStr();
-    const receita = parseFloat((receitaInput.value || '').replace(',', '.'));
-    if(!receita || receita <= 0){
+    const typedReceita = parseFloat((receitaInput.value || '').replace(',', '.'));
+    if(!typedReceita || typedReceita <= 0){
       showToast('Informe um valor de venda válido');
       return;
     }
-    const kg = receita / pricePerKg;
-    const isUpdate = !!entriesAll[dateStr];
 
-    entriesAll[dateStr] = {kg, receita};
+    const wasEditing = !!editingDate;
+    let novaReceita;
+    if(wasEditing){
+      // Correção manual: o valor digitado substitui o total do dia
+      novaReceita = typedReceita;
+    }else{
+      // Fluxo normal: cada venda soma ao total já registrado no dia
+      const existente = entriesAll[dateStr];
+      novaReceita = (existente ? existente.receita : 0) + typedReceita;
+    }
+    const novoKg = novaReceita / pricePerKg;
+
+    entriesAll[dateStr] = {kg: novoKg, receita: novaReceita};
     if(monthKeyOf(dateStr) !== currentMonthKey){
       switchMonth(monthKeyOf(dateStr));
     }else{
@@ -692,9 +713,12 @@
     resetForm();
 
     saveBtn.disabled = true;
-    const ok = await postAction({action:'save', date: dateStr, kg, receita});
+    const ok = await postAction({action:'save', date: dateStr, kg: novoKg, receita: novaReceita});
     saveBtn.disabled = false;
-    showToast(ok ? (isUpdate ? 'Lançamento atualizado' : 'Venda registrada') : 'Salvo localmente, mas houve falha ao sincronizar — toque em ↻ para tentar de novo');
+    const msg = wasEditing
+      ? 'Total do dia corrigido para ' + fmtBRL(novaReceita)
+      : 'Venda somada — total do dia: ' + fmtBRL(novaReceita);
+    showToast(ok ? msg : 'Salvo localmente, mas houve falha ao sincronizar — toque em ↻ para tentar de novo');
   }
 
   function openModal(){
