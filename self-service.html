@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Self Service · Atacadão do Sorvete</title>
+<style>
+  :root{
+    --cream:#FAF6EF;
+    --card:#FFFFFF;
+    --ink:#25211B;
+    --muted:#8B8378;
+    --line:#EAE2D3;
+    --teal:#155E52;
+    --teal-dark:#0E453C;
+    --clay:#BE5A34;
+    --clay-soft:#F3E2D8;
+    --ok:#2F7A4F;
+    --danger:#B5442E;
+    --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:520px;
+    margin:0 auto;
+    padding:20px 16px 60px;
+  }
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--muted);
+    font-weight:600;
+    margin:0 0 2px;
+  }
+  h1{
+    font-size:22px;
+    margin:0 0 18px;
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .gear{
+    width:34px;height:34px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:var(--card);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    flex:none;
+    color:var(--muted);
+    transition:transform .15s ease, color .15s ease;
+  }
+  .gear:hover{ color:var(--ink); transform:rotate(20deg); }
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:16px;
+  }
+  label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--muted);
+    margin-bottom:6px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  input[type=date]{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    font-size:15px;
+    font-family:inherit;
+    color:var(--ink);
+    background:#fff;
+    margin-bottom:16px;
+  }
+  .scale{
+    background:var(--teal-dark);
+    border-radius:14px;
+    padding:20px 18px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:8px;
+    margin-bottom:10px;
+    position:relative;
+  }
+  .scale::before{
+    content:"balança";
+    position:absolute;
+    top:8px; left:14px;
+    font-size:9px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:#6FA89C;
+    font-weight:600;
+  }
+  .scale input{
+    background:transparent;
+    border:none;
+    outline:none;
+    color:#EAF7F2;
+    font-family:"SF Mono","Roboto Mono","Courier New",monospace;
+    font-weight:700;
+    font-size:52px;
+    font-variant-numeric:tabular-nums;
+    text-align:right;
+    width:100%;
+    max-width:220px;
+    padding:0;
+    caret-color:#6FE3C6;
+  }
+  .scale input::placeholder{ color:#3F7A6D; }
+  .scale .unit{
+    color:#6FE3C6;
+    font-size:20px;
+    font-weight:700;
+    padding-bottom:8px;
+    font-family:"SF Mono","Roboto Mono","Courier New",monospace;
+  }
+  .revenue-line{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    padding:2px 4px 16px;
+  }
+  .revenue-line .label{
+    font-size:12px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:600;
+  }
+  .revenue-line .value{
+    font-family:"SF Mono","Roboto Mono","Courier New",monospace;
+    font-size:22px;
+    font-weight:700;
+    color:var(--clay);
+    font-variant-numeric:tabular-nums;
+  }
+  button.primary{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:var(--teal);
+    color:#fff;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    transition:background .15s ease, transform .05s ease;
+  }
+  button.primary:active{ transform:scale(.98); }
+  button.primary:hover{ background:var(--teal-dark); }
+  button.primary:disabled{ background:#C9C2B4; cursor:not-allowed; }
+  button.ghost{
+    width:100%;
+    padding:11px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:transparent;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    margin-top:8px;
+  }
+  button.ghost:hover{ border-color:var(--muted); color:var(--ink); }
+
+  .month-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:12px;
+  }
+  .month-nav .title{
+    font-weight:700;
+    font-size:15px;
+    text-transform:capitalize;
+  }
+  .month-nav button{
+    width:32px;height:32px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    font-size:16px;
+    cursor:pointer;
+    line-height:1;
+  }
+  .month-nav button:hover{ background:var(--clay-soft); border-color:var(--clay); }
+
+  .summary-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:10px;
+    margin-bottom:4px;
+  }
+  .summary-item{
+    background:var(--clay-soft);
+    border-radius:10px;
+    padding:10px 8px;
+    text-align:center;
+  }
+  .summary-item .num{
+    font-family:"SF Mono","Roboto Mono","Courier New",monospace;
+    font-weight:700;
+    font-size:16px;
+    color:var(--teal-dark);
+    font-variant-numeric:tabular-nums;
+  }
+  .summary-item .lbl{
+    font-size:10px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    margin-top:2px;
+  }
+
+  .row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+    gap:10px;
+  }
+  .row:last-child{ border-bottom:none; }
+  .row .date{
+    font-weight:700;
+    font-size:13px;
+    width:52px;
+    flex:none;
+  }
+  .row .nums{
+    flex:1;
+    display:flex;
+    gap:14px;
+    font-family:"SF Mono","Roboto Mono","Courier New",monospace;
+    font-size:13px;
+    font-variant-numeric:tabular-nums;
+    color:var(--ink);
+  }
+  .row .nums .kgv{ color:var(--muted); min-width:56px; }
+  .row .actions{
+    display:flex;
+    gap:4px;
+    flex:none;
+  }
+  .icon-btn{
+    width:28px;height:28px;
+    border:none;
+    background:transparent;
+    color:var(--muted);
+    cursor:pointer;
+    border-radius:7px;
+    font-size:14px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .icon-btn:hover{ background:var(--clay-soft); color:var(--clay); }
+  .icon-btn.del:hover{ background:#F5DCD5; color:var(--danger); }
+
+  .empty{
+    text-align:center;
+    color:var(--muted);
+    font-size:13px;
+    padding:24px 10px;
+  }
+
+  .confirm-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#FBEDE8;
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:12.5px;
+    color:var(--danger);
+    gap:8px;
+  }
+  .confirm-row button{
+    border:none;
+    background:var(--danger);
+    color:#fff;
+    padding:5px 10px;
+    border-radius:6px;
+    font-size:11.5px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .confirm-row .cancel{
+    background:transparent;
+    color:var(--muted);
+    font-weight:600;
+    cursor:pointer;
+  }
+
+  .modal-bg{
+    position:fixed; inset:0;
+    background:rgba(20,17,12,.45);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+    z-index:50;
+  }
+  .modal{
+    background:#fff;
+    border-radius:16px;
+    padding:22px;
+    max-width:340px;
+    width:100%;
+  }
+  .modal h2{ font-size:16px; margin:0 0 4px; }
+  .modal p{ font-size:13px; color:var(--muted); margin:0 0 16px; line-height:1.5; }
+  .modal input[type=number]{
+    width:100%;
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    font-size:16px;
+    margin-bottom:14px;
+    font-family:"SF Mono","Roboto Mono","Courier New",monospace;
+  }
+  .toast{
+    position:fixed;
+    bottom:22px; left:50%;
+    transform:translateX(-50%);
+    background:var(--teal-dark);
+    color:#fff;
+    padding:10px 18px;
+    border-radius:30px;
+    font-size:13px;
+    font-weight:600;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s ease, transform .25s ease;
+    z-index:60;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+
+  .price-tag{
+    font-size:12px;
+    color:var(--muted);
+    text-align:center;
+    margin-top:-4px;
+    margin-bottom:14px;
+  }
+  .price-tag b{ color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Atacadão do Sorvete</div>
+  <h1>
+    Self Service no Peso
+    <button class="gear" id="gearBtn" title="Configurar preço/kg">⚙</button>
+  </h1>
+
+  <div class="card">
+    <label for="dateInput">Data</label>
+    <input type="date" id="dateInput">
+
+    <div class="scale">
+      <input type="number" id="kgInput" inputmode="decimal" step="0.001" min="0" placeholder="0,000">
+      <span class="unit">kg</span>
+    </div>
+    <div class="price-tag" id="priceTag"></div>
+
+    <div class="revenue-line">
+      <span class="label">Receita do dia</span>
+      <span class="value" id="revenueOut">R$ 0,00</span>
+    </div>
+
+    <button class="primary" id="saveBtn">Salvar venda de hoje</button>
+    <button class="ghost" id="cancelEditBtn" style="display:none;">Cancelar edição</button>
+  </div>
+
+  <div class="card">
+    <div class="month-nav">
+      <button id="prevMonth">‹</button>
+      <div class="title" id="monthTitle">—</div>
+      <button id="nextMonth">›</button>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-item">
+        <div class="num" id="sumDays">0</div>
+        <div class="lbl">dias</div>
+      </div>
+      <div class="summary-item">
+        <div class="num" id="sumKg">0</div>
+        <div class="lbl">kg total</div>
+      </div>
+      <div class="summary-item">
+        <div class="num" id="sumRevenue">R$0</div>
+        <div class="lbl">receita</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <label style="margin-bottom:10px;">Lançamentos do mês</label>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="modalBg" style="display:none;">
+  <div class="modal">
+    <h2 id="modalTitle">Preço por kg</h2>
+    <p>Esse valor é usado para calcular a receita automaticamente a partir do peso vendido. Vale para todos os funcionários que usarem esta página.</p>
+    <label for="priceInput">R$ por kg</label>
+    <input type="number" id="priceInput" inputmode="decimal" step="0.01" min="0" placeholder="Ex: 89.90">
+    <button class="primary" id="savePriceBtn">Salvar preço</button>
+    <button class="ghost" id="closeModalBtn">Fechar</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const dateInput = $('dateInput');
+  const kgInput = $('kgInput');
+  const revenueOut = $('revenueOut');
+  const saveBtn = $('saveBtn');
+  const cancelEditBtn = $('cancelEditBtn');
+  const priceTag = $('priceTag');
+  const gearBtn = $('gearBtn');
+  const modalBg = $('modalBg');
+  const priceInput = $('priceInput');
+  const savePriceBtn = $('savePriceBtn');
+  const closeModalBtn = $('closeModalBtn');
+  const monthTitle = $('monthTitle');
+  const prevMonthBtn = $('prevMonth');
+  const nextMonthBtn = $('nextMonth');
+  const historyList = $('historyList');
+  const sumDays = $('sumDays');
+  const sumKg = $('sumKg');
+  const sumRevenue = $('sumRevenue');
+  const toastEl = $('toast');
+
+  let pricePerKg = null;
+  let currentMonthKey = null; // "YYYY-MM"
+  let monthEntries = {};      // { "YYYY-MM-DD": { kg, receita } }
+  let editingDate = null;     // date string being edited, or null for "new"
+
+  const MONTH_NAMES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+
+  function todayStr(){
+    const d = new Date();
+    return d.toISOString().slice(0,10);
+  }
+  function monthKeyOf(dateStr){ return dateStr.slice(0,7); }
+  function fmtBRL(v){
+    return 'R$ ' + (v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function fmtKg(v){
+    return (v||0).toLocaleString('pt-BR', {minimumFractionDigits:3, maximumFractionDigits:3});
+  }
+  function fmtDateShort(dateStr){
+    const [y,m,d] = dateStr.split('-');
+    return d + '/' + m;
+  }
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(()=> toastEl.classList.remove('show'), 1800);
+  }
+
+  async function loadConfig(){
+    try{
+      const res = await window.storage.get('config', true);
+      pricePerKg = res && res.value ? JSON.parse(res.value).pricePerKg : null;
+    }catch(e){
+      pricePerKg = null;
+    }
+  }
+  async function saveConfig(){
+    await window.storage.set('config', JSON.stringify({pricePerKg}), true);
+  }
+
+  async function loadMonth(monthKey){
+    try{
+      const res = await window.storage.get('entries:' + monthKey, true);
+      monthEntries = res && res.value ? JSON.parse(res.value) : {};
+    }catch(e){
+      monthEntries = {};
+    }
+  }
+  async function saveMonth(monthKey){
+    await window.storage.set('entries:' + monthKey, JSON.stringify(monthEntries), true);
+  }
+
+  function updatePriceTag(){
+    priceTag.innerHTML = pricePerKg
+      ? 'Preço fixo: <b>' + fmtBRL(pricePerKg) + '/kg</b>'
+      : '<b>Configure o preço por kg no ⚙ para começar</b>';
+  }
+
+  function recalcRevenue(){
+    const kg = parseFloat(kgInput.value.replace(',', '.')) || 0;
+    const rev = pricePerKg ? kg * pricePerKg : 0;
+    revenueOut.textContent = fmtBRL(rev);
+    return rev;
+  }
+
+  function renderMonthTitle(){
+    const [y,m] = currentMonthKey.split('-');
+    monthTitle.textContent = MONTH_NAMES[parseInt(m,10)-1] + ' de ' + y;
+  }
+
+  function renderSummary(){
+    const dates = Object.keys(monthEntries);
+    let kgTotal = 0, revTotal = 0;
+    dates.forEach(d => {
+      kgTotal += monthEntries[d].kg;
+      revTotal += monthEntries[d].receita;
+    });
+    sumDays.textContent = dates.length;
+    sumKg.textContent = fmtKg(kgTotal).split(',')[0]; // whole-ish for the small tile
+    sumKg.title = fmtKg(kgTotal) + ' kg';
+    sumRevenue.textContent = 'R$' + Math.round(revTotal).toLocaleString('pt-BR');
+    sumRevenue.title = fmtBRL(revTotal);
+  }
+
+  function renderHistory(){
+    const dates = Object.keys(monthEntries).sort().reverse();
+    if(dates.length === 0){
+      historyList.innerHTML = '<div class="empty">Nenhum lançamento neste mês ainda.</div>';
+      return;
+    }
+    historyList.innerHTML = '';
+    dates.forEach(d => {
+      const entry = monthEntries[d];
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML =
+        '<div class="date">' + fmtDateShort(d) + '</div>' +
+        '<div class="nums"><span class="kgv">' + fmtKg(entry.kg) + ' kg</span><span>' + fmtBRL(entry.receita) + '</span></div>' +
+        '<div class="actions">' +
+          '<button class="icon-btn edit" title="Editar">✎</button>' +
+          '<button class="icon-btn del" title="Excluir">✕</button>' +
+        '</div>';
+      row.querySelector('.edit').addEventListener('click', () => startEdit(d));
+      row.querySelector('.del').addEventListener('click', () => askDelete(d, row));
+      historyList.appendChild(row);
+    });
+  }
+
+  function askDelete(dateStr, rowEl){
+    const confirmRow = document.createElement('div');
+    confirmRow.className = 'confirm-row';
+    confirmRow.innerHTML = '<span>Excluir lançamento de ' + fmtDateShort(dateStr) + '?</span>' +
+      '<span><button class="yes">Excluir</button> <span class="cancel">Cancelar</span></span>';
+    rowEl.replaceWith(confirmRow);
+    confirmRow.querySelector('.yes').addEventListener('click', async () => {
+      delete monthEntries[dateStr];
+      await saveMonth(currentMonthKey);
+      renderSummary();
+      renderHistory();
+      showToast('Lançamento excluído');
+      if(editingDate === dateStr) resetForm();
+    });
+    confirmRow.querySelector('.cancel').addEventListener('click', () => {
+      renderHistory();
+    });
+  }
+
+  function startEdit(dateStr){
+    editingDate = dateStr;
+    dateInput.value = dateStr;
+    kgInput.value = monthEntries[dateStr].kg;
+    recalcRevenue();
+    saveBtn.textContent = 'Atualizar lançamento';
+    cancelEditBtn.style.display = 'block';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  function resetForm(){
+    editingDate = null;
+    dateInput.value = todayStr();
+    kgInput.value = '';
+    recalcRevenue();
+    saveBtn.textContent = 'Salvar venda de hoje';
+    cancelEditBtn.style.display = 'none';
+  }
+
+  async function switchMonth(monthKey){
+    currentMonthKey = monthKey;
+    renderMonthTitle();
+    await loadMonth(monthKey);
+    renderSummary();
+    renderHistory();
+  }
+
+  async function handleSave(){
+    if(!pricePerKg){
+      openModal();
+      showToast('Configure o preço por kg primeiro');
+      return;
+    }
+    const dateStr = dateInput.value || todayStr();
+    const kg = parseFloat(kgInput.value.replace(',', '.'));
+    if(!kg || kg <= 0){
+      showToast('Informe um peso válido');
+      return;
+    }
+    const receita = kg * pricePerKg;
+    const targetMonth = monthKeyOf(dateStr);
+
+    if(targetMonth !== currentMonthKey){
+      await loadMonth(targetMonth);
+      currentMonthKey = targetMonth;
+      renderMonthTitle();
+    }
+
+    const isUpdate = !!monthEntries[dateStr];
+    monthEntries[dateStr] = {kg, receita};
+    await saveMonth(currentMonthKey);
+    renderSummary();
+    renderHistory();
+    showToast(isUpdate ? 'Lançamento atualizado' : 'Venda registrada');
+    resetForm();
+  }
+
+  function openModal(){
+    priceInput.value = pricePerKg || '';
+    modalBg.style.display = 'flex';
+  }
+  function closeModal(){
+    modalBg.style.display = 'none';
+  }
+
+  // Events
+  kgInput.addEventListener('input', recalcRevenue);
+  dateInput.addEventListener('change', async () => {
+    const mk = monthKeyOf(dateInput.value || todayStr());
+    if(mk !== currentMonthKey){
+      await switchMonth(mk);
+    }
+  });
+  saveBtn.addEventListener('click', handleSave);
+  cancelEditBtn.addEventListener('click', resetForm);
+  gearBtn.addEventListener('click', openModal);
+  closeModalBtn.addEventListener('click', closeModal);
+  savePriceBtn.addEventListener('click', async () => {
+    const v = parseFloat(priceInput.value.replace(',', '.'));
+    if(!v || v <= 0){
+      showToast('Informe um preço válido');
+      return;
+    }
+    pricePerKg = v;
+    await saveConfig();
+    updatePriceTag();
+    recalcRevenue();
+    closeModal();
+    showToast('Preço salvo: ' + fmtBRL(v) + '/kg');
+  });
+  prevMonthBtn.addEventListener('click', () => {
+    const [y,m] = currentMonthKey.split('-').map(Number);
+    const d = new Date(y, m-2, 1);
+    switchMonth(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  });
+  nextMonthBtn.addEventListener('click', () => {
+    const [y,m] = currentMonthKey.split('-').map(Number);
+    const d = new Date(y, m, 1);
+    switchMonth(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  });
+
+  async function init(){
+    dateInput.value = todayStr();
+    await loadConfig();
+    updatePriceTag();
+    recalcRevenue();
+    await switchMonth(monthKeyOf(todayStr()));
+    if(!pricePerKg){
+      openModal();
+    }
+  }
+  init();
+})();
+</script>
+</body>
+</html>
