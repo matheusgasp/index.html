@@ -40,7 +40,24 @@
     color:var(--muted);
     font-weight:600;
     margin:0 0 2px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
   }
+  .sync-dot{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:none;
+  }
+  .sync-dot .dot{ width:7px; height:7px; border-radius:50%; background:#C9C2B4; }
+  .sync-dot.ok .dot{ background:var(--ok); }
+  .sync-dot.err .dot{ background:var(--danger); }
+  .sync-dot.loading .dot{ background:var(--clay); animation:pulse 1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
   h1{
     font-size:22px;
     margin:0 0 18px;
@@ -187,11 +204,14 @@
     align-items:center;
     justify-content:space-between;
     margin-bottom:12px;
+    gap:8px;
   }
   .month-nav .title{
     font-weight:700;
     font-size:15px;
     text-transform:capitalize;
+    flex:1;
+    text-align:center;
   }
   .month-nav button{
     width:32px;height:32px;
@@ -202,8 +222,10 @@
     font-size:16px;
     cursor:pointer;
     line-height:1;
+    flex:none;
   }
   .month-nav button:hover{ background:var(--clay-soft); border-color:var(--clay); }
+  .refresh-btn{ font-size:14px !important; }
 
   .summary-grid{
     display:grid;
@@ -349,6 +371,8 @@
     pointer-events:none;
     transition:opacity .25s ease, transform .25s ease;
     z-index:60;
+    max-width:88%;
+    text-align:center;
   }
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
 
@@ -364,7 +388,10 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="eyebrow">Atacadão do Sorvete</div>
+  <div class="eyebrow">
+    <span>Atacadão do Sorvete</span>
+    <span class="sync-dot loading" id="syncDot"><span class="dot"></span><span id="syncLabel">carregando…</span></span>
+  </div>
   <h1>
     Self Service no Peso
     <button class="gear" id="gearBtn" title="Configurar preço/kg">⚙</button>
@@ -393,6 +420,7 @@
     <div class="month-nav">
       <button id="prevMonth">‹</button>
       <div class="title" id="monthTitle">—</div>
+      <button id="refreshBtn" class="refresh-btn" title="Atualizar dados">↻</button>
       <button id="nextMonth">›</button>
     </div>
 
@@ -433,6 +461,8 @@
 
 <script>
 (function(){
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbz_s9sxOn5pzh5lFr9s9nLe3Jh8bo2d-ly8RrYEKR4KXRR1_siX44pI10TpG7GsdMWq/exec";
+
   const $ = (id) => document.getElementById(id);
   const dateInput = $('dateInput');
   const kgInput = $('kgInput');
@@ -448,16 +478,19 @@
   const monthTitle = $('monthTitle');
   const prevMonthBtn = $('prevMonth');
   const nextMonthBtn = $('nextMonth');
+  const refreshBtn = $('refreshBtn');
   const historyList = $('historyList');
   const sumDays = $('sumDays');
   const sumKg = $('sumKg');
   const sumRevenue = $('sumRevenue');
   const toastEl = $('toast');
+  const syncDot = $('syncDot');
+  const syncLabel = $('syncLabel');
 
   let pricePerKg = null;
-  let currentMonthKey = null; // "YYYY-MM"
-  let monthEntries = {};      // { "YYYY-MM-DD": { kg, receita } }
-  let editingDate = null;     // date string being edited, or null for "new"
+  let currentMonthKey = null;
+  let entriesAll = {};        // { "YYYY-MM-DD": { kg, receita } } — todos os meses
+  let editingDate = null;
 
   const MONTH_NAMES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
@@ -479,31 +512,48 @@
   function showToast(msg){
     toastEl.textContent = msg;
     toastEl.classList.add('show');
-    setTimeout(()=> toastEl.classList.remove('show'), 1800);
+    setTimeout(()=> toastEl.classList.remove('show'), 2200);
+  }
+  function setSync(state, label){
+    syncDot.className = 'sync-dot ' + state;
+    syncLabel.textContent = label;
   }
 
-  async function loadConfig(){
+  async function fetchAll(){
+    setSync('loading', 'carregando…');
     try{
-      const res = await window.storage.get('config', true);
-      pricePerKg = res && res.value ? JSON.parse(res.value).pricePerKg : null;
-    }catch(e){
-      pricePerKg = null;
+      const res = await fetch(GAS_URL, {cache:'no-store'});
+      if(!res.ok) throw new Error('http ' + res.status);
+      const data = await res.json();
+      pricePerKg = data.price ? parseFloat(data.price) : null;
+      entriesAll = {};
+      (data.entries || []).forEach(e => {
+        if(!e.date) return;
+        entriesAll[e.date] = { kg: parseFloat(e.kg) || 0, receita: parseFloat(e.receita) || 0 };
+      });
+      setSync('ok', 'sincronizado');
+      return true;
+    }catch(err){
+      setSync('err', 'sem conexão');
+      showToast('Não consegui buscar os dados da planilha. Verifique a internet.');
+      return false;
     }
-  }
-  async function saveConfig(){
-    await window.storage.set('config', JSON.stringify({pricePerKg}), true);
   }
 
-  async function loadMonth(monthKey){
+  async function postAction(payload){
     try{
-      const res = await window.storage.get('entries:' + monthKey, true);
-      monthEntries = res && res.value ? JSON.parse(res.value) : {};
-    }catch(e){
-      monthEntries = {};
+      await fetch(GAS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: JSON.stringify(payload)
+      });
+      return true;
+    }catch(err){
+      setSync('err', 'falha ao salvar');
+      showToast('Não consegui salvar. Verifique a internet e tente de novo.');
+      return false;
     }
-  }
-  async function saveMonth(monthKey){
-    await window.storage.set('entries:' + monthKey, JSON.stringify(monthEntries), true);
   }
 
   function updatePriceTag(){
@@ -513,7 +563,7 @@
   }
 
   function recalcRevenue(){
-    const kg = parseFloat(kgInput.value.replace(',', '.')) || 0;
+    const kg = parseFloat((kgInput.value || '').replace(',', '.')) || 0;
     const rev = pricePerKg ? kg * pricePerKg : 0;
     revenueOut.textContent = fmtBRL(rev);
     return rev;
@@ -524,7 +574,16 @@
     monthTitle.textContent = MONTH_NAMES[parseInt(m,10)-1] + ' de ' + y;
   }
 
+  function entriesForCurrentMonth(){
+    const out = {};
+    Object.keys(entriesAll).forEach(d => {
+      if(monthKeyOf(d) === currentMonthKey) out[d] = entriesAll[d];
+    });
+    return out;
+  }
+
   function renderSummary(){
+    const monthEntries = entriesForCurrentMonth();
     const dates = Object.keys(monthEntries);
     let kgTotal = 0, revTotal = 0;
     dates.forEach(d => {
@@ -532,13 +591,14 @@
       revTotal += monthEntries[d].receita;
     });
     sumDays.textContent = dates.length;
-    sumKg.textContent = fmtKg(kgTotal).split(',')[0]; // whole-ish for the small tile
+    sumKg.textContent = Math.round(kgTotal).toLocaleString('pt-BR');
     sumKg.title = fmtKg(kgTotal) + ' kg';
     sumRevenue.textContent = 'R$' + Math.round(revTotal).toLocaleString('pt-BR');
     sumRevenue.title = fmtBRL(revTotal);
   }
 
   function renderHistory(){
+    const monthEntries = entriesForCurrentMonth();
     const dates = Object.keys(monthEntries).sort().reverse();
     if(dates.length === 0){
       historyList.innerHTML = '<div class="empty">Nenhum lançamento neste mês ainda.</div>';
@@ -569,12 +629,12 @@
       '<span><button class="yes">Excluir</button> <span class="cancel">Cancelar</span></span>';
     rowEl.replaceWith(confirmRow);
     confirmRow.querySelector('.yes').addEventListener('click', async () => {
-      delete monthEntries[dateStr];
-      await saveMonth(currentMonthKey);
+      delete entriesAll[dateStr];
       renderSummary();
       renderHistory();
-      showToast('Lançamento excluído');
       if(editingDate === dateStr) resetForm();
+      const ok = await postAction({action:'delete', date: dateStr});
+      showToast(ok ? 'Lançamento excluído' : 'Excluído localmente, mas houve falha ao sincronizar');
     });
     confirmRow.querySelector('.cancel').addEventListener('click', () => {
       renderHistory();
@@ -584,7 +644,7 @@
   function startEdit(dateStr){
     editingDate = dateStr;
     dateInput.value = dateStr;
-    kgInput.value = monthEntries[dateStr].kg;
+    kgInput.value = entriesAll[dateStr].kg;
     recalcRevenue();
     saveBtn.textContent = 'Atualizar lançamento';
     cancelEditBtn.style.display = 'block';
@@ -600,10 +660,9 @@
     cancelEditBtn.style.display = 'none';
   }
 
-  async function switchMonth(monthKey){
+  function switchMonth(monthKey){
     currentMonthKey = monthKey;
     renderMonthTitle();
-    await loadMonth(monthKey);
     renderSummary();
     renderHistory();
   }
@@ -615,27 +674,27 @@
       return;
     }
     const dateStr = dateInput.value || todayStr();
-    const kg = parseFloat(kgInput.value.replace(',', '.'));
+    const kg = parseFloat((kgInput.value || '').replace(',', '.'));
     if(!kg || kg <= 0){
       showToast('Informe um peso válido');
       return;
     }
     const receita = kg * pricePerKg;
-    const targetMonth = monthKeyOf(dateStr);
+    const isUpdate = !!entriesAll[dateStr];
 
-    if(targetMonth !== currentMonthKey){
-      await loadMonth(targetMonth);
-      currentMonthKey = targetMonth;
-      renderMonthTitle();
+    entriesAll[dateStr] = {kg, receita};
+    if(monthKeyOf(dateStr) !== currentMonthKey){
+      switchMonth(monthKeyOf(dateStr));
+    }else{
+      renderSummary();
+      renderHistory();
     }
-
-    const isUpdate = !!monthEntries[dateStr];
-    monthEntries[dateStr] = {kg, receita};
-    await saveMonth(currentMonthKey);
-    renderSummary();
-    renderHistory();
-    showToast(isUpdate ? 'Lançamento atualizado' : 'Venda registrada');
     resetForm();
+
+    saveBtn.disabled = true;
+    const ok = await postAction({action:'save', date: dateStr, kg, receita});
+    saveBtn.disabled = false;
+    showToast(ok ? (isUpdate ? 'Lançamento atualizado' : 'Venda registrada') : 'Salvo localmente, mas houve falha ao sincronizar — toque em ↻ para tentar de novo');
   }
 
   function openModal(){
@@ -646,30 +705,27 @@
     modalBg.style.display = 'none';
   }
 
-  // Events
   kgInput.addEventListener('input', recalcRevenue);
-  dateInput.addEventListener('change', async () => {
+  dateInput.addEventListener('change', () => {
     const mk = monthKeyOf(dateInput.value || todayStr());
-    if(mk !== currentMonthKey){
-      await switchMonth(mk);
-    }
+    if(mk !== currentMonthKey) switchMonth(mk);
   });
   saveBtn.addEventListener('click', handleSave);
   cancelEditBtn.addEventListener('click', resetForm);
   gearBtn.addEventListener('click', openModal);
   closeModalBtn.addEventListener('click', closeModal);
   savePriceBtn.addEventListener('click', async () => {
-    const v = parseFloat(priceInput.value.replace(',', '.'));
+    const v = parseFloat((priceInput.value || '').replace(',', '.'));
     if(!v || v <= 0){
       showToast('Informe um preço válido');
       return;
     }
     pricePerKg = v;
-    await saveConfig();
     updatePriceTag();
     recalcRevenue();
     closeModal();
-    showToast('Preço salvo: ' + fmtBRL(v) + '/kg');
+    const ok = await postAction({action:'setPrice', price: v});
+    showToast(ok ? ('Preço salvo: ' + fmtBRL(v) + '/kg') : 'Salvo localmente, mas houve falha ao sincronizar');
   });
   prevMonthBtn.addEventListener('click', () => {
     const [y,m] = currentMonthKey.split('-').map(Number);
@@ -681,16 +737,24 @@
     const d = new Date(y, m, 1);
     switchMonth(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
   });
+  refreshBtn.addEventListener('click', async () => {
+    const ok = await fetchAll();
+    updatePriceTag();
+    renderSummary();
+    renderHistory();
+    if(ok) showToast('Dados atualizados');
+  });
 
   async function init(){
     dateInput.value = todayStr();
-    await loadConfig();
+    currentMonthKey = monthKeyOf(todayStr());
+    renderMonthTitle();
+    const ok = await fetchAll();
     updatePriceTag();
     recalcRevenue();
-    await switchMonth(monthKeyOf(todayStr()));
-    if(!pricePerKg){
-      openModal();
-    }
+    renderSummary();
+    renderHistory();
+    if(ok && !pricePerKg) openModal();
   }
   init();
 })();
