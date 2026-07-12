@@ -732,6 +732,13 @@
   }
 
   receitaInput.addEventListener('input', recalcKg);
+  receitaInput.addEventListener('keydown', (ev) => {
+    if(ev.key === 'Enter'){
+      ev.preventDefault();
+      handleSave();
+      receitaInput.focus();
+    }
+  });
   dateInput.addEventListener('change', () => {
     const mk = monthKeyOf(dateInput.value || todayStr());
     if(mk !== currentMonthKey) switchMonth(mk);
