@@ -508,7 +508,10 @@
   }
   function todayStr(){
     const d = new Date();
-    return d.toISOString().slice(0,10);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
   }
   function monthKeyOf(dateStr){ return dateStr.slice(0,7); }
   function fmtBRL(v){
@@ -541,7 +544,8 @@
       entriesAll = {};
       (data.entries || []).forEach(e => {
         if(!e.date || !e.id) return;
-        entriesAll[e.id] = { date: e.date, kg: parseFloat(e.kg) || 0, receita: parseFloat(e.receita) || 0 };
+        const cleanDate = String(e.date).slice(0, 10);
+        entriesAll[e.id] = { date: cleanDate, kg: parseFloat(e.kg) || 0, receita: parseFloat(e.receita) || 0 };
       });
       setSync('ok', 'sincronizado');
       return true;
