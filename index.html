@@ -335,6 +335,48 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 .sz-slider-row{display:flex;align-items:center;gap:7px;background:var(--surf2);border:1px solid var(--bd);border-radius:var(--r8);padding:5px 9px}
 .sz-slider-month{font-size:11px;color:var(--tx2);min-width:28px}
 .sz-slider-lbl{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--p);min-width:34px;text-align:right}
+
+/* AP FORNECEDORES */
+.ap-mtabs{display:flex;gap:6px;margin-bottom:10px}
+.ap-mtab{flex:1;padding:8px 6px;border-radius:10px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--bd);background:var(--surf);color:var(--tx2);transition:all .15s;text-align:center}
+.ap-mtab span{font-family:var(--mono);opacity:.7}
+.ap-mtab.active{background:var(--tx);color:#fff;border-color:var(--tx)}
+.ap-board{display:flex;flex-direction:column;gap:8px}
+.ap-col{display:none}
+.ap-col.active{display:flex;flex-direction:column;gap:8px}
+.ap-col-hd{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);padding:2px 2px 4px}
+.ap-card{background:var(--surf);border:1px solid var(--bd);border-radius:var(--r12);overflow:hidden}
+.ap-card.is-vencido{border-left:3px solid var(--r)}
+.ap-card.is-apagar{border-left:3px solid var(--a)}
+.ap-card.is-pago{border-left:3px solid var(--g)}
+.ap-card-hd{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;transition:background .1s}
+.ap-card-hd:hover{background:var(--surf2)}
+.ap-card-info{flex:1;min-width:0}
+.ap-card-forn{font-size:13px;font-weight:600;color:var(--tx)}
+.ap-card-meta{font-size:11px;color:var(--tx3);margin-top:1px}
+.ap-card-right{text-align:right;white-space:nowrap}
+.ap-card-val{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--tx)}
+.ap-card-due{font-size:10px;font-weight:600;margin-top:2px}
+.ap-card-due.is-vencido{color:var(--r-text)}
+.ap-card-due.is-apagar{color:var(--a-text)}
+.ap-card-due.is-pago{color:var(--g-text)}
+.ap-chev{font-size:11px;color:var(--tx3);transition:transform .2s;flex-shrink:0}
+.ap-chev.open{transform:rotate(90deg)}
+.ap-body{padding:0 14px 4px;display:none}
+.ap-body.open{display:block}
+.ap-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0 12px;flex-wrap:wrap}
+.ap-btn-pay{background:var(--g);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:11px;font-weight:600;cursor:pointer}
+.ap-btn-pay:hover{opacity:.9}
+.ap-btn-del{background:none;border:none;cursor:pointer;color:var(--tx3);font-size:11px;padding:4px 6px;border-radius:4px}
+.ap-btn-del:hover{background:var(--r-light);color:var(--r-text)}
+.ap-pay-inline{display:flex;align-items:center;gap:6px}
+.ap-pay-inline input[type=date]{border:1px solid var(--bd);border-radius:6px;padding:5px 6px;font-size:11px;font-family:var(--mono)}
+.ap-empty{padding:24px 10px;text-align:center;color:var(--tx3);font-size:12px}
+@media(min-width:860px){
+  .ap-mtabs{display:none}
+  .ap-board{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;align-items:start}
+  .ap-col{display:flex}
+}
 </style>
 </head>
 <body>
@@ -349,6 +391,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     <button class="tab"         onclick="goTab('despesas')">💸 Despesas</button>
     <button class="tab"         onclick="goTab('dre')">📊 DRE</button>
     <button class="tab"         onclick="goTab('cmv')">🏷 CMV</button>
+    <button class="tab"         onclick="goTab('ap')">🧾 AP</button>
     <button class="tab"         onclick="goTab('historico')">🗂 Histórico</button>
     <button class="tab"         onclick="goTab('sazonal')">🌡 Sazonal</button>
     <button class="tab"         onclick="goTab('b2b')">🤝 B2B</button>
@@ -577,6 +620,33 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
   <div id="cmv-content"></div>
 </div>
 
+<!-- ══ AP FORNECEDORES ══ -->
+<div id="panel-ap" class="panel">
+  <div class="ap-mtabs" id="ap-mtabs">
+    <button class="ap-mtab active" data-col="vencido" onclick="goAPCol('vencido')">🔴 Vencido <span id="ap-cnt-vencido">0</span></button>
+    <button class="ap-mtab" data-col="apagar" onclick="goAPCol('apagar')">🟡 A pagar <span id="ap-cnt-apagar">0</span></button>
+    <button class="ap-mtab" data-col="pago" onclick="goAPCol('pago')">🟢 Pago <span id="ap-cnt-pago">0</span></button>
+  </div>
+  <div class="ap-board" id="ap-board"></div>
+
+  <div class="sep"><div class="sep-line"></div><div class="sep-lbl">📥 Importar pedido via JSON</div><div class="sep-line"></div></div>
+
+  <div class="import-box">
+    <div class="import-title">⚡ Cole o JSON gerado pelo Claude</div>
+    <div class="import-hint">
+      Envie a foto do pedido nesta conversa e peça <em>"Gere o JSON de importação deste pedido"</em>.<br>
+      <strong>Campos:</strong> <code>fornecedor</code> · <code>pedido</code> · <code>parcela</code> · <code>emissao</code> · <code>vencimento</code> · <code>valor</code> · <code>itens[]</code><br>
+      Esta aba é isolada do DRE — importar aqui não lança nada em CMV/despesas.
+    </div>
+    <textarea class="json-area" id="ap-import-json" placeholder='[{"fornecedor":"Ice Tasty","pedido":"1827","parcela":"1/1","emissao":"2026-08-05","vencimento":"2026-08-12","valor":2023.96,"itens":[{"codigo":"233","descricao":"Linha Gourmet/Pistache","quantidade":36,"valor_unit":6.72,"valor_total":241.92}]}]'></textarea>
+    <div class="btn-row">
+      <button class="btn-import" onclick="importAPJSON()">✓ Importar pedido(s)</button>
+      <button class="btn-clear-imp" onclick="clearAPImport()">✕ Limpar</button>
+    </div>
+    <div class="import-result" id="ap-import-result"></div>
+  </div>
+</div>
+
 <!-- ══ HISTÓRICO ══ -->
 <div id="panel-historico" class="panel">
   <div class="backup-box" style="margin-top:4px">
@@ -672,6 +742,8 @@ const FORNECEDORES_VALIDOS=['Gelateria Antártica','Los Los (PPPP)','Cream Color
 let dreEntries=[];
 let nfRecords=[];
 let vendaRecords=[];
+let pedidosRecords=[];
+let apCol='vencido';
 let activeTab='nf';
 let activeHistTab='nfs';
 let dreMonth=new Date().getMonth();
@@ -700,6 +772,7 @@ async function init(){
   try{const r=localStorage.getItem('dre_v2');if(r)dreEntries=JSON.parse(r);}catch(e){dreEntries=[];}
   try{const r=localStorage.getItem('nf_compras');if(r)nfRecords=JSON.parse(r);}catch(e){nfRecords=[];}
   try{const r=localStorage.getItem('nf_vendas');if(r)vendaRecords=JSON.parse(r);}catch(e){vendaRecords=[];}
+  try{const r=localStorage.getItem('ap_pedidos');if(r)pedidosRecords=JSON.parse(r);}catch(e){pedidosRecords=[];}
   // Depois busca do Drive (fonte de verdade)
   setSyncStatus('loading');
   try{
@@ -709,9 +782,11 @@ async function init(){
       dreEntries=Array.isArray(data.dreEntries)?data.dreEntries:dreEntries;
       nfRecords=Array.isArray(data.nfRecords)?data.nfRecords:nfRecords;
       vendaRecords=Array.isArray(data.vendaRecords)?data.vendaRecords:vendaRecords;
+      pedidosRecords=Array.isArray(data.pedidosRecords)?data.pedidosRecords:pedidosRecords;
       try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
       try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
       try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
+      try{localStorage.setItem('ap_pedidos',JSON.stringify(pedidosRecords));}catch(e){}
     }
     setSyncStatus('ok');
   }catch(e){
@@ -740,10 +815,11 @@ function goTab(id){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
-  const labels={'nf':'📦 NF','vendas':'🛒 Vendas','despesas':'💸 Despesas','dre':'📊 DRE','cmv':'🏷 CMV','historico':'🗂 Histórico','sazonal':'🌡 Sazonal','b2b':'🤝 B2B'};
+  const labels={'nf':'📦 NF','vendas':'🛒 Vendas','despesas':'💸 Despesas','dre':'📊 DRE','cmv':'🏷 CMV','ap':'🧾 AP','historico':'🗂 Histórico','sazonal':'🌡 Sazonal','b2b':'🤝 B2B'};
   document.querySelectorAll('.tab').forEach(t=>{if(t.textContent.trim()===labels[id])t.classList.add('active');});
   if(id==='dre')renderDRE();
   if(id==='cmv')renderCMV();
+  if(id==='ap')renderAP();
   if(id==='historico')renderHistorico();
   if(id==='vendas')renderVendasList();
   if(id==='sazonal')renderSazonal();
@@ -1519,6 +1595,146 @@ function toggleNF(id){
   document.getElementById('nfchev-'+id)?.classList.toggle('open');
 }
 
+// ══ AP FORNECEDORES ══ (isolado do DRE — nunca escreve em dreEntries/nfRecords)
+function apStatusOf(p){
+  if(p.status==='pago')return'pago';
+  const today=new Date().toISOString().split('T')[0];
+  return(p.vencimento&&p.vencimento<today)?'vencido':'apagar';
+}
+function apDueLabel(p,st){
+  if(st==='pago')return'Pago em '+brDate(p.pago_em);
+  const today=new Date();today.setHours(0,0,0,0);
+  const venc=new Date(p.vencimento+'T00:00:00');
+  const diff=Math.round((venc-today)/86400000);
+  if(diff<0)return'Venceu há '+Math.abs(diff)+' dia'+(Math.abs(diff)>1?'s':'');
+  if(diff===0)return'Vence hoje';
+  return'Vence em '+diff+' dia'+(diff>1?'s':'');
+}
+function brDate(iso){if(!iso)return'—';const[y,m,d]=iso.split('-');return`${d}/${m}/${y}`;}
+function goAPCol(id){
+  apCol=id;
+  document.querySelectorAll('.ap-mtab').forEach(t=>t.classList.toggle('active',t.dataset.col===id));
+  document.querySelectorAll('.ap-col').forEach(c=>c.classList.toggle('active',c.dataset.col===id));
+}
+function renderAP(){
+  const board=document.getElementById('ap-board');
+  const groups={vencido:[],apagar:[],pago:[]};
+  pedidosRecords.forEach(p=>groups[apStatusOf(p)].push(p));
+  groups.vencido.sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
+  groups.apagar.sort((a,b)=>(a.vencimento||'').localeCompare(b.vencimento||''));
+  groups.pago.sort((a,b)=>(b.pago_em||'').localeCompare(a.pago_em||''));
+  document.getElementById('ap-cnt-vencido').textContent=groups.vencido.length;
+  document.getElementById('ap-cnt-apagar').textContent=groups.apagar.length;
+  document.getElementById('ap-cnt-pago').textContent=groups.pago.length;
+  const cols=[
+    {id:'vencido',lbl:'🔴 Vencido',list:groups.vencido},
+    {id:'apagar',lbl:'🟡 A pagar',list:groups.apagar},
+    {id:'pago',lbl:'🟢 Pago',list:groups.pago}
+  ];
+  board.innerHTML=cols.map(c=>`
+    <div class="ap-col${c.id===apCol?' active':''}" data-col="${c.id}">
+      <div class="ap-col-hd">${c.lbl} · ${c.list.length}</div>
+      ${c.list.length?c.list.map(p=>apCard(p)).join(''):`<div class="ap-empty">Nenhum pedido aqui.</div>`}
+    </div>`).join('');
+}
+function apCard(p){
+  const st=apStatusOf(p);
+  const rows=(p.itens||[]).map(i=>`<tr>
+    <td><div class="sk-code">${i.codigo||'—'}</div><div class="sk-desc">${i.descricao||''}</div></td>
+    <td>${i.quantidade||0}</td>
+    <td>R$ ${(i.valor_unit||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+    <td>R$ ${(i.valor_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+  </tr>`).join('');
+  return`<div class="ap-card is-${st}">
+    <div class="ap-card-hd" onclick="toggleAP('${p.id}')">
+      <div class="ap-card-info">
+        <div class="ap-card-forn">${p.fornecedor}${p.parcela&&p.parcela!=='1/1'?' · '+p.parcela:''}</div>
+        <div class="ap-card-meta">Pedido ${p.pedido} · venc. ${brDate(p.vencimento)}</div>
+      </div>
+      <div class="ap-card-right">
+        <div class="ap-card-val">R$ ${(p.valor||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</div>
+        <div class="ap-card-due is-${st}">${apDueLabel(p,st)}</div>
+      </div>
+      <div class="ap-chev" id="apchev-${p.id}">›</div>
+    </div>
+    <div class="ap-body" id="apbody-${p.id}">
+      ${rows?`<div style="overflow-x:auto"><table class="sk-table">
+        <thead><tr><th>Produto</th><th>Qtd</th><th>Vlr Unit.</th><th>Total</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`:`<div style="font-size:11px;color:var(--tx3);padding:6px 0">Sem itens detalhados neste pedido.</div>`}
+      <div class="ap-footer">
+        ${st!=='pago'?`
+          <div class="ap-pay-inline">
+            <input type="date" id="ap-paydate-${p.id}" value="${new Date().toISOString().split('T')[0]}">
+            <button class="ap-btn-pay" onclick="markAPPaid('${p.id}')">✓ Marcar como pago</button>
+          </div>
+        `:`
+          <div class="ap-pay-inline">
+            <input type="date" id="ap-paydate-${p.id}" value="${p.pago_em||''}">
+            <button class="ap-btn-pay" onclick="markAPPaid('${p.id}')" style="background:var(--tx2)">Ajustar data</button>
+          </div>
+        `}
+        <button class="ap-btn-del" onclick="delAP('${p.id}')">× Excluir pedido</button>
+      </div>
+    </div>
+  </div>`;
+}
+function toggleAP(id){
+  document.getElementById('apbody-'+id)?.classList.toggle('open');
+  document.getElementById('apchev-'+id)?.classList.toggle('open');
+}
+async function markAPPaid(id){
+  const p=pedidosRecords.find(x=>x.id===id);if(!p)return;
+  const dateEl=document.getElementById('ap-paydate-'+id);
+  const val=dateEl?dateEl.value:new Date().toISOString().split('T')[0];
+  if(!val){alert('Informe a data do pagamento.');return;}
+  p.status='pago';p.pago_em=val;
+  await saveAll();
+  renderAP();
+}
+async function delAP(id){
+  if(!confirm('Excluir este pedido do controle de AP? Isso não afeta o DRE nem NFs.'))return;
+  pedidosRecords=pedidosRecords.filter(p=>p.id!==id);
+  await saveAll();
+  renderAP();
+}
+async function importAPJSON(){
+  const raw=document.getElementById('ap-import-json').value.trim();
+  if(!raw){showImportResult('ap-import-result','err','Cole o JSON antes de importar.');return;}
+  let parsed;
+  try{parsed=JSON.parse(raw);}catch(e){showImportResult('ap-import-result','err','JSON inválido.');return;}
+  if(!Array.isArray(parsed))parsed=[parsed];
+  const erros=[],novos=[];
+  parsed.forEach((item,i)=>{
+    const n=i+1;
+    if(!item.fornecedor){erros.push(`Item ${n}: campo "fornecedor" obrigatório`);return;}
+    if(!item.pedido){erros.push(`Item ${n}: campo "pedido" obrigatório`);return;}
+    if(!item.vencimento){erros.push(`Item ${n}: campo "vencimento" obrigatório`);return;}
+    if(!item.valor||item.valor<=0){erros.push(`Item ${n}: "valor" inválido`);return;}
+    novos.push({
+      id:'ap-'+Date.now()+'-'+n,
+      fornecedor:item.fornecedor,pedido:String(item.pedido),parcela:item.parcela||'1/1',
+      emissao:item.emissao||'',vencimento:item.vencimento,valor:item.valor,
+      status:'aberto',pago_em:null,
+      itens:Array.isArray(item.itens)?item.itens.map((it,j)=>({
+        id:'apit-'+j,codigo:it.codigo||'',descricao:it.descricao||'',
+        quantidade:it.quantidade||0,valor_unit:it.valor_unit||0,valor_total:it.valor_total||0
+      })):[],
+      criadoEm:new Date().toISOString()
+    });
+  });
+  if(erros.length){showImportResult('ap-import-result','err','Erros:<br>• '+erros.join('<br>• '));return;}
+  pedidosRecords=[...pedidosRecords,...novos];
+  await saveAll();
+  document.getElementById('ap-import-json').value='';
+  showImportResult('ap-import-result','ok',`✓ ${novos.length} pedido${novos.length>1?'s':''} importado${novos.length>1?'s':''}! Controle de AP atualizado (nada foi lançado no DRE).`);
+  renderAP();
+}
+function clearAPImport(){
+  document.getElementById('ap-import-json').value='';
+  document.getElementById('ap-import-result').style.display='none';
+}
+
 async function delNF(id){
   if(!confirm('Excluir esta NF e o lançamento de CMV correspondente no DRE?'))return;
   nfRecords=nfRecords.filter(n=>n.id!==id);
@@ -1601,10 +1817,11 @@ async function saveAll(){
   try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
   try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
   try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
+  try{localStorage.setItem('ap_pedidos',JSON.stringify(pedidosRecords));}catch(e){}
   // Salva no Drive
   setSyncStatus('saving');
   try{
-    const payload={dreEntries,nfRecords,vendaRecords};
+    const payload={dreEntries,nfRecords,vendaRecords,pedidosRecords};
     await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
     setSyncStatus('ok');
   }catch(e){
@@ -1613,7 +1830,7 @@ async function saveAll(){
 }
 
 function exportBackup(){
-  const b={versao:'atacadao_v1',exportadoEm:new Date().toISOString(),dreEntries,nfRecords,vendaRecords};
+  const b={versao:'atacadao_v1',exportadoEm:new Date().toISOString(),dreEntries,nfRecords,vendaRecords,pedidosRecords};
   const blob=new Blob([JSON.stringify(b,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
   const d=new Date();a.href=url;
@@ -1631,6 +1848,7 @@ async function restoreBackup(){
   dreEntries=Array.isArray(parsed.dreEntries)?parsed.dreEntries:[];
   nfRecords=Array.isArray(parsed.nfRecords)?parsed.nfRecords:[];
   vendaRecords=Array.isArray(parsed.vendaRecords)?parsed.vendaRecords:[];
+  pedidosRecords=Array.isArray(parsed.pedidosRecords)?parsed.pedidosRecords:pedidosRecords;
   await saveAll();
   document.getElementById('restore-json').value='';
   const ex=parsed.exportadoEm?new Date(parsed.exportadoEm).toLocaleString('pt-BR'):'data desconhecida';
