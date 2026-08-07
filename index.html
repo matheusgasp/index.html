@@ -659,7 +659,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 
   <div class="import-box" style="margin-bottom:10px">
     <div class="import-title">🔄 Restaurar backup completo</div>
-    <div class="import-hint">Cole o conteúdo do arquivo <code>atacadao-backup-*.json</code>. Restaura <strong>todos</strong> os dados: DRE, NFs e Vendas.</div>
+    <div class="import-hint">Cole o conteúdo do arquivo <code>atacadao-backup-*.json</code>. Restaura <strong>todos</strong> os dados: DRE, NFs, Vendas, AP Fornecedores, config. sazonal e B2B.</div>
     <textarea class="json-area" id="restore-json" placeholder='{"versao":"atacadao_v1","dreEntries":[...],"nfRecords":[...],"vendaRecords":[...]}' style="min-height:80px"></textarea>
     <div class="btn-row">
       <button class="btn-import" onclick="restoreBackup()">🔄 Restaurar</button>
@@ -787,6 +787,8 @@ async function init(){
       try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
       try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
       try{localStorage.setItem('ap_pedidos',JSON.stringify(pedidosRecords));}catch(e){}
+      if(data.sazonalConfig)try{localStorage.setItem(SAZONAL_KEY,JSON.stringify(data.sazonalConfig));}catch(e){}
+      if(Array.isArray(data.b2bData)){b2bData=data.b2bData;try{localStorage.setItem(B2B_KEY,JSON.stringify(b2bData));}catch(e){}}
     }
     setSyncStatus('ok');
   }catch(e){
@@ -1812,6 +1814,8 @@ function renderEstoque(){
 }
 
 // ══ HELPERS ══
+function _readLS(key){try{const r=localStorage.getItem(key);return r?JSON.parse(r):null;}catch(e){return null;}}
+
 async function saveAll(){
   // Cache local imediato
   try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
@@ -1821,7 +1825,9 @@ async function saveAll(){
   // Salva no Drive
   setSyncStatus('saving');
   try{
-    const payload={dreEntries,nfRecords,vendaRecords,pedidosRecords};
+    const sazonalConfig=_readLS(SAZONAL_KEY);
+    const b2bPayload=_readLS(B2B_KEY)||b2bData;
+    const payload={dreEntries,nfRecords,vendaRecords,pedidosRecords,sazonalConfig,b2bData:b2bPayload};
     await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
     setSyncStatus('ok');
   }catch(e){
@@ -1830,7 +1836,9 @@ async function saveAll(){
 }
 
 function exportBackup(){
-  const b={versao:'atacadao_v1',exportadoEm:new Date().toISOString(),dreEntries,nfRecords,vendaRecords,pedidosRecords};
+  const sazonalConfig=_readLS(SAZONAL_KEY);
+  const b2bPayload=_readLS(B2B_KEY)||b2bData;
+  const b={versao:'atacadao_v1',exportadoEm:new Date().toISOString(),dreEntries,nfRecords,vendaRecords,pedidosRecords,sazonalConfig,b2bData:b2bPayload};
   const blob=new Blob([JSON.stringify(b,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
   const d=new Date();a.href=url;
@@ -1849,6 +1857,8 @@ async function restoreBackup(){
   nfRecords=Array.isArray(parsed.nfRecords)?parsed.nfRecords:[];
   vendaRecords=Array.isArray(parsed.vendaRecords)?parsed.vendaRecords:[];
   pedidosRecords=Array.isArray(parsed.pedidosRecords)?parsed.pedidosRecords:pedidosRecords;
+  if(parsed.sazonalConfig)try{localStorage.setItem(SAZONAL_KEY,JSON.stringify(parsed.sazonalConfig));}catch(e){}
+  if(Array.isArray(parsed.b2bData)){b2bData=parsed.b2bData;try{localStorage.setItem(B2B_KEY,JSON.stringify(b2bData));}catch(e){}}
   await saveAll();
   document.getElementById('restore-json').value='';
   const ex=parsed.exportadoEm?new Date(parsed.exportadoEm).toLocaleString('pt-BR'):'data desconhecida';
