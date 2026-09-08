@@ -2191,22 +2191,61 @@ function removePrecoVigencia(i){
   renderProducao();
 }
 
+const PROD_STATUS_VALIDOS=['ok','bloqueado','anomalia'];
+const PP_TIPOS_VALIDOS=['fixo','varejo_atacado','proxy_peso','tiers','excluido'];
+
+function validateProdRecord(rec,n){
+  const erros=[];
+  if(!rec.id||typeof rec.id!=='string')erros.push(`Item ${n}: "id" ausente ou inválido`);
+  if(!rec.data||!/^\d{4}-\d{2}-\d{2}$/.test(rec.data))erros.push(`Item ${n}: "data" inválida (esperado AAAA-MM-DD)`);
+  if(!rec.categoria||typeof rec.categoria!=='string')erros.push(`Item ${n}: "categoria" ausente`);
+  const status=rec.status||'ok';
+  if(!PROD_STATUS_VALIDOS.includes(status))erros.push(`Item ${n}: "status" inválido (use ok, bloqueado ou anomalia)`);
+  if(status==='anomalia')return erros; // evento sem unidades/cmv, ok não ter os dois
+  if(!rec.formato||typeof rec.formato!=='string')erros.push(`Item ${n}: "formato" ausente`);
+  if(rec.unidades===undefined||rec.unidades===null||isNaN(rec.unidades)||rec.unidades<=0)erros.push(`Item ${n}: "unidades" inválida (deve ser número > 0)`);
+  if(status==='ok'){
+    if(rec.cmv_unitario===undefined||rec.cmv_unitario===null||isNaN(rec.cmv_unitario)||rec.cmv_unitario<0)erros.push(`Item ${n}: "cmv_unitario" inválido (status "ok" exige número ≥ 0)`);
+  }else if(status==='bloqueado'){
+    if(rec.cmv_unitario!==null&&rec.cmv_unitario!==undefined)erros.push(`Item ${n}: status "bloqueado" mas "cmv_unitario" não é null`);
+  }
+  return erros;
+}
+
+function validateProdPreco(p,n){
+  const erros=[];
+  if(!p.formato||typeof p.formato!=='string')erros.push(`Item ${n}: "formato" ausente`);
+  if(p.sabor!==null&&p.sabor!==undefined&&typeof p.sabor!=='string')erros.push(`Item ${n}: "sabor" deve ser texto ou null`);
+  if(!p.tipo||!PP_TIPOS_VALIDOS.includes(p.tipo))erros.push(`Item ${n}: "tipo" inválido (use ${PP_TIPOS_VALIDOS.join(', ')})`);
+  if(!p.vigencia_inicio||!/^\d{4}-\d{2}-\d{2}$/.test(p.vigencia_inicio))erros.push(`Item ${n}: "vigencia_inicio" inválida (esperado AAAA-MM-DD)`);
+  if(p.tipo==='fixo'&&(isNaN(p.preco)||p.preco<=0))erros.push(`Item ${n}: tipo "fixo" exige "preco" numérico > 0`);
+  if(p.tipo==='varejo_atacado'&&(isNaN(p.preco_varejo)||isNaN(p.preco_atacado)||p.preco_varejo<=0||p.preco_atacado<=0))erros.push(`Item ${n}: tipo "varejo_atacado" exige "preco_varejo" e "preco_atacado" numéricos > 0`);
+  if(p.tipo==='proxy_peso'&&(isNaN(p.preco_kg)||isNaN(p.kg_medio_balde)||p.preco_kg<=0||p.kg_medio_balde<=0))erros.push(`Item ${n}: tipo "proxy_peso" exige "preco_kg" e "kg_medio_balde" numéricos > 0`);
+  if(p.tipo==='tiers'){
+    if(!Array.isArray(p.tiers)||!p.tiers.length)erros.push(`Item ${n}: tipo "tiers" exige array "tiers" não vazio`);
+    else if(p.tiers.some(t=>isNaN(t.min_qtd)||isNaN(t.preco)||t.preco<=0))erros.push(`Item ${n}: algum tier tem "min_qtd" ou "preco" inválido`);
+  }
+  return erros;
+}
+
 function importProducaoRecords(){
   const raw=document.getElementById('prod-import-records').value.trim();
   if(!raw){showImportResult('prod-import-result','err','Cole o JSON antes de importar.');return;}
   let parsed;
   try{parsed=JSON.parse(raw);}catch(e){showImportResult('prod-import-result','err','JSON inválido.');return;}
   if(!Array.isArray(parsed)){showImportResult('prod-import-result','err','Esperado um array de registros.');return;}
-  let added=0,updated=0,semId=0;
+  const erros=[];
+  parsed.forEach((rec,i)=>erros.push(...validateProdRecord(rec,i+1)));
+  if(erros.length){showImportResult('prod-import-result','err',`Nada foi importado — corrija e tente de novo:<br>• ${erros.join('<br>• ')}`);return;}
+  let added=0,updated=0;
   const byId=new Map(producaoRecords.map(r=>[r.id,r]));
   for(const rec of parsed){
-    if(!rec.id){semId++;continue;}
     if(byId.has(rec.id)){Object.assign(byId.get(rec.id),rec);updated++;}
     else{producaoRecords.push(rec);byId.set(rec.id,rec);added++;}
   }
   saveAll();
   renderProducao();
-  showImportResult('prod-import-result','ok',`✓ ${added} lote(s) novo(s), ${updated} atualizado(s)${semId?`, ${semId} ignorado(s) por falta de id`:''}. Total: ${producaoRecords.length}`);
+  showImportResult('prod-import-result','ok',`✓ ${added} lote(s) novo(s), ${updated} atualizado(s). Total: ${producaoRecords.length}`);
   document.getElementById('prod-import-records').value='';
 }
 
@@ -2216,10 +2255,20 @@ function importProducaoPrecos(){
   let parsed;
   try{parsed=JSON.parse(raw);}catch(e){showImportResult('prod-import-precos-result','err','JSON inválido.');return;}
   if(!Array.isArray(parsed)){showImportResult('prod-import-precos-result','err','Esperado um array de preços.');return;}
-  producaoPrecos=producaoPrecos.concat(parsed);
+  const erros=[];
+  parsed.forEach((p,i)=>erros.push(...validateProdPreco(p,i+1)));
+  if(erros.length){showImportResult('prod-import-precos-result','err',`Nada foi importado — corrija e tente de novo:<br>• ${erros.join('<br>• ')}`);return;}
+  let added=0,updated=0;
+  const chave=p=>p.formato+'|'+(p.sabor||'')+'|'+p.vigencia_inicio;
+  const existentes=new Map(producaoPrecos.map(p=>[chave(p),p]));
+  for(const p of parsed){
+    const k=chave(p);
+    if(existentes.has(k)){Object.assign(existentes.get(k),p);updated++;}
+    else{producaoPrecos.push(p);existentes.set(k,p);added++;}
+  }
   saveAll();
   renderProducao();
-  showImportResult('prod-import-precos-result','ok',`✓ ${parsed.length} vigência(s) importada(s). Total: ${producaoPrecos.length}`);
+  showImportResult('prod-import-precos-result','ok',`✓ ${added} vigência(s) nova(s), ${updated} atualizada(s). Total: ${producaoPrecos.length}`);
   document.getElementById('prod-import-precos').value='';
 }
 
