@@ -711,9 +711,28 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title">💲 Preços de venda vigentes</div>
-    <div id="prod-precos-list"></div>
+  <div class="prod-card">
+    <div class="prod-hd" onclick="toggleProdGroup('precos')">
+      <span class="prod-icon">💲</span>
+      <span class="prod-title">Preços de venda vigentes</span>
+      <span class="prod-meta" id="prod-precos-count"></span>
+      <span class="prod-chev" id="pgchev-precos">▶</span>
+    </div>
+    <div class="prod-body" id="pgbody-precos">
+      <div id="prod-precos-list"></div>
+    </div>
+  </div>
+
+  <div class="prod-card">
+    <div class="prod-hd" onclick="toggleProdGroup('pendencias')">
+      <span class="prod-icon">⚠️</span>
+      <span class="prod-title">Pendências</span>
+      <span class="prod-meta" id="prod-pendencias-count"></span>
+      <span class="prod-chev" id="pgchev-pendencias">▶</span>
+    </div>
+    <div class="prod-body" id="pgbody-pendencias">
+      <div id="prod-pendencias-list"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -734,6 +753,16 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     </div>
     <button class="btn-primary" onclick="importProducaoPrecos()">Importar preços</button>
     <div class="import-result" id="prod-import-precos-result"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📥 Importar pendências</div>
+    <div class="field">
+      <label>Cole o JSON (array de producaoPendencias)</label>
+      <textarea id="prod-import-pendencias" rows="4" style="width:100%;font-family:var(--mono);font-size:11px;padding:8px;border:1px solid var(--bd);border-radius:var(--r8)"></textarea>
+    </div>
+    <button class="btn-primary" onclick="importProducaoPendencias()">Importar pendências</button>
+    <div class="import-result" id="prod-import-pendencias-result"></div>
   </div>
 </div>
 
@@ -835,6 +864,7 @@ let vendaRecords=[];
 let pedidosRecords=[];
 let producaoRecords=[];
 let producaoPrecos=[];
+let producaoPendencias=[];
 let prodSelectedPeriod=null;
 let apCol='vencido';
 let activeTab='nf';
@@ -868,6 +898,7 @@ async function init(){
   try{const r=localStorage.getItem('ap_pedidos');if(r)pedidosRecords=JSON.parse(r);}catch(e){pedidosRecords=[];}
   try{const r=localStorage.getItem('producao_records');if(r)producaoRecords=JSON.parse(r);}catch(e){producaoRecords=[];}
   try{const r=localStorage.getItem('producao_precos');if(r)producaoPrecos=JSON.parse(r);}catch(e){producaoPrecos=[];}
+  try{const r=localStorage.getItem('producao_pendencias');if(r)producaoPendencias=JSON.parse(r);}catch(e){producaoPendencias=[];}
   // Depois busca do Drive (fonte de verdade)
   setSyncStatus('loading');
   try{
@@ -880,12 +911,14 @@ async function init(){
       pedidosRecords=Array.isArray(data.pedidosRecords)?data.pedidosRecords:pedidosRecords;
       producaoRecords=Array.isArray(data.producaoRecords)?data.producaoRecords:producaoRecords;
       producaoPrecos=Array.isArray(data.producaoPrecos)?data.producaoPrecos:producaoPrecos;
+      producaoPendencias=Array.isArray(data.producaoPendencias)?data.producaoPendencias:producaoPendencias;
       try{localStorage.setItem('dre_v2',JSON.stringify(dreEntries));}catch(e){}
       try{localStorage.setItem('nf_compras',JSON.stringify(nfRecords));}catch(e){}
       try{localStorage.setItem('nf_vendas',JSON.stringify(vendaRecords));}catch(e){}
       try{localStorage.setItem('ap_pedidos',JSON.stringify(pedidosRecords));}catch(e){}
       try{localStorage.setItem('producao_records',JSON.stringify(producaoRecords));}catch(e){}
       try{localStorage.setItem('producao_precos',JSON.stringify(producaoPrecos));}catch(e){}
+      try{localStorage.setItem('producao_pendencias',JSON.stringify(producaoPendencias));}catch(e){}
       if(data.sazonalConfig)try{localStorage.setItem(SAZONAL_KEY,JSON.stringify(data.sazonalConfig));}catch(e){}
       if(Array.isArray(data.b2bData)){b2bData=data.b2bData;try{localStorage.setItem(B2B_KEY,JSON.stringify(b2bData));}catch(e){}}
     }
@@ -1925,12 +1958,13 @@ async function saveAll(){
   try{localStorage.setItem('ap_pedidos',JSON.stringify(pedidosRecords));}catch(e){}
   try{localStorage.setItem('producao_records',JSON.stringify(producaoRecords));}catch(e){}
   try{localStorage.setItem('producao_precos',JSON.stringify(producaoPrecos));}catch(e){}
+  try{localStorage.setItem('producao_pendencias',JSON.stringify(producaoPendencias));}catch(e){}
   // Salva no Drive
   setSyncStatus('saving');
   try{
     const sazonalConfig=_readLS(SAZONAL_KEY);
     const b2bPayload=_readLS(B2B_KEY)||b2bData;
-    const payload={dreEntries,nfRecords,vendaRecords,pedidosRecords,sazonalConfig,b2bData:b2bPayload,producaoRecords,producaoPrecos};
+    const payload={dreEntries,nfRecords,vendaRecords,pedidosRecords,sazonalConfig,b2bData:b2bPayload,producaoRecords,producaoPrecos,producaoPendencias};
     await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload),redirect:'follow'});
     setSyncStatus('ok');
   }catch(e){
@@ -1941,7 +1975,7 @@ async function saveAll(){
 function exportBackup(){
   const sazonalConfig=_readLS(SAZONAL_KEY);
   const b2bPayload=_readLS(B2B_KEY)||b2bData;
-  const b={versao:'atacadao_v1',exportadoEm:new Date().toISOString(),dreEntries,nfRecords,vendaRecords,pedidosRecords,sazonalConfig,b2bData:b2bPayload,producaoRecords,producaoPrecos};
+  const b={versao:'atacadao_v1',exportadoEm:new Date().toISOString(),dreEntries,nfRecords,vendaRecords,pedidosRecords,sazonalConfig,b2bData:b2bPayload,producaoRecords,producaoPrecos,producaoPendencias};
   const blob=new Blob([JSON.stringify(b,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');
   const d=new Date();a.href=url;
@@ -1962,6 +1996,7 @@ async function restoreBackup(){
   pedidosRecords=Array.isArray(parsed.pedidosRecords)?parsed.pedidosRecords:pedidosRecords;
   producaoRecords=Array.isArray(parsed.producaoRecords)?parsed.producaoRecords:producaoRecords;
   producaoPrecos=Array.isArray(parsed.producaoPrecos)?parsed.producaoPrecos:producaoPrecos;
+  producaoPendencias=Array.isArray(parsed.producaoPendencias)?parsed.producaoPendencias:producaoPendencias;
   if(parsed.sazonalConfig)try{localStorage.setItem(SAZONAL_KEY,JSON.stringify(parsed.sazonalConfig));}catch(e){}
   if(Array.isArray(parsed.b2bData)){b2bData=parsed.b2bData;try{localStorage.setItem(B2B_KEY,JSON.stringify(b2bData));}catch(e){}}
   await saveAll();
@@ -2102,11 +2137,13 @@ function renderProducao(){
   document.getElementById('prod-groups').innerHTML=html||'<div class="card" style="text-align:center;color:var(--tx3);font-size:12px">Sem lotes nesse período</div>';
 
   renderProdPrecosList();
+  renderProdPendencias();
 }
 
 function renderProdPrecosList(){
   const el=document.getElementById('prod-precos-list');
   if(!el)return;
+  document.getElementById('prod-precos-count').textContent=producaoPrecos.length+' vigência(s)';
   if(!producaoPrecos.length){el.innerHTML='<div style="font-size:12px;color:var(--tx3)">Nenhum preço cadastrado ainda.</div>';return;}
   const sorted=[...producaoPrecos].sort((a,b)=>(a.formato+String(a.sabor)).localeCompare(b.formato+String(b.sabor))||a.vigencia_inicio.localeCompare(b.vigencia_inicio));
   el.innerHTML=sorted.map((p,i)=>{
@@ -2122,6 +2159,27 @@ function renderProdPrecosList(){
       <button class="nf-footer-del" onclick="removePrecoVigencia(${producaoPrecos.indexOf(p)})">✕</button>
     </div>`;
   }).join('');
+}
+
+function renderProdPendencias(){
+  const el=document.getElementById('prod-pendencias-list');
+  if(!el)return;
+  document.getElementById('prod-pendencias-count').textContent=producaoPendencias.length+' item(ns)';
+  if(!producaoPendencias.length){el.innerHTML='<div style="font-size:12px;color:var(--tx3)">Nenhuma pendência cadastrada.</div>';return;}
+  el.innerHTML=producaoPendencias.map(p=>`<div class="pp-row" style="align-items:flex-start">
+      <div class="k">
+        <div style="font-weight:600;color:var(--tx)">${p.item}</div>
+        <div style="color:var(--tx2);font-size:11px;margin-top:2px">${p.situacao}</div>
+      </div>
+      <button class="nf-footer-del" onclick="removePendencia(${producaoPendencias.indexOf(p)})">✕</button>
+    </div>`).join('');
+}
+
+function removePendencia(i){
+  if(!confirm('Remover essa pendência (marcar como resolvida)?'))return;
+  producaoPendencias.splice(i,1);
+  saveAll();
+  renderProducao();
 }
 
 function removePrecoVigencia(i){
@@ -2210,6 +2268,34 @@ function importProducaoPrecos(){
   renderProducao();
   showImportResult('prod-import-precos-result','ok',`✓ ${added} vigência(s) nova(s), ${updated} atualizada(s). Total: ${producaoPrecos.length}`);
   document.getElementById('prod-import-precos').value='';
+}
+
+function validateProdPendencia(p,n){
+  const erros=[];
+  if(!p.item||typeof p.item!=='string')erros.push(`Item ${n}: "item" ausente ou inválido`);
+  if(!p.situacao||typeof p.situacao!=='string')erros.push(`Item ${n}: "situacao" ausente ou inválida`);
+  return erros;
+}
+
+function importProducaoPendencias(){
+  const raw=document.getElementById('prod-import-pendencias').value.trim();
+  if(!raw){showImportResult('prod-import-pendencias-result','err','Cole o JSON antes de importar.');return;}
+  let parsed;
+  try{parsed=JSON.parse(raw);}catch(e){showImportResult('prod-import-pendencias-result','err','JSON inválido.');return;}
+  if(!Array.isArray(parsed)){showImportResult('prod-import-pendencias-result','err','Esperado um array de pendências.');return;}
+  const erros=[];
+  parsed.forEach((p,i)=>erros.push(...validateProdPendencia(p,i+1)));
+  if(erros.length){showImportResult('prod-import-pendencias-result','err',`Nada foi importado — corrija e tente de novo:<br>• ${erros.join('<br>• ')}`);return;}
+  let added=0,updated=0;
+  const existentes=new Map(producaoPendencias.map(p=>[p.item,p]));
+  for(const p of parsed){
+    if(existentes.has(p.item)){Object.assign(existentes.get(p.item),p);updated++;}
+    else{producaoPendencias.push(p);existentes.set(p.item,p);added++;}
+  }
+  saveAll();
+  renderProducao();
+  showImportResult('prod-import-pendencias-result','ok',`✓ ${added} pendência(s) nova(s), ${updated} atualizada(s). Total: ${producaoPendencias.length}`);
+  document.getElementById('prod-import-pendencias').value='';
 }
 
 function fmt(n){const abs=Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0});return(n<0?'- R$ ':'R$ ')+abs;}
