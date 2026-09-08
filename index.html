@@ -717,29 +717,6 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
   </div>
 
   <div class="card">
-    <div class="card-title">＋ Nova vigência de preço</div>
-    <div class="field-row">
-      <div class="field"><label>Formato</label><input id="pp-formato" placeholder="Ex: Pote 1,5L"></div>
-      <div class="field"><label>Sabor (opcional)</label><input id="pp-sabor" placeholder="deixe vazio p/ todos"></div>
-    </div>
-    <div class="field">
-      <label>Tipo de preço</label>
-      <select id="pp-tipo" onchange="ppTipoChanged()">
-        <option value="fixo">Fixo (1 valor)</option>
-        <option value="varejo_atacado">Varejo / Atacado</option>
-        <option value="proxy_peso">Proxy por peso (R$/kg × kg médio)</option>
-        <option value="tiers">Tiers por quantidade (ex: Picolé)</option>
-        <option value="excluido">Excluído do controle</option>
-      </select>
-    </div>
-    <div id="pp-fields"></div>
-    <div class="field"><label>Vigência a partir de</label><input id="pp-vigencia" type="date"></div>
-    <div class="field"><label>Nota (opcional)</label><input id="pp-nota" placeholder="Ex: confirmado por Matheus em..."></div>
-    <button class="btn-primary" onclick="addPrecoVigencia()">Adicionar vigência</button>
-    <div class="import-result" id="pp-add-result"></div>
-  </div>
-
-  <div class="card">
     <div class="card-title">📥 Importar lotes de produção</div>
     <div class="field">
       <label>Cole o JSON (array de producaoRecords)</label>
@@ -2145,43 +2122,6 @@ function renderProdPrecosList(){
       <button class="nf-footer-del" onclick="removePrecoVigencia(${producaoPrecos.indexOf(p)})">✕</button>
     </div>`;
   }).join('');
-}
-
-function ppTipoChanged(){
-  const tipo=document.getElementById('pp-tipo').value;
-  const el=document.getElementById('pp-fields');
-  if(tipo==='fixo')el.innerHTML='<div class="field"><label>Preço (R$)</label><input id="pp-preco" type="number" step="0.01"></div>';
-  else if(tipo==='varejo_atacado')el.innerHTML='<div class="field-row"><div class="field"><label>Varejo (R$)</label><input id="pp-varejo" type="number" step="0.01"></div><div class="field"><label>Atacado (R$)</label><input id="pp-atacado" type="number" step="0.01"></div></div>';
-  else if(tipo==='proxy_peso')el.innerHTML='<div class="field-row"><div class="field"><label>R$/kg</label><input id="pp-precokg" type="number" step="0.01"></div><div class="field"><label>Kg médio/balde</label><input id="pp-kgmedio" type="number" step="0.1"></div></div>';
-  else if(tipo==='tiers')el.innerHTML='<div class="field"><label>Tiers (formato: qtd:preço, um por linha)</label><textarea id="pp-tiersraw" rows="3" placeholder="1:4.00&#10;20:3.50&#10;30:3.00&#10;100:2.80" style="width:100%;font-family:var(--mono);font-size:12px;padding:8px;border:1px solid var(--bd);border-radius:var(--r8)"></textarea></div>';
-  else el.innerHTML='';
-}
-ppTipoChanged();
-
-function addPrecoVigencia(){
-  const formato=document.getElementById('pp-formato').value.trim();
-  const sabor=document.getElementById('pp-sabor').value.trim()||null;
-  const tipo=document.getElementById('pp-tipo').value;
-  const vigencia=document.getElementById('pp-vigencia').value;
-  const nota=document.getElementById('pp-nota').value.trim()||undefined;
-  if(!formato||!vigencia){showImportResult('pp-add-result','err','Preencha ao menos Formato e Vigência.');return;}
-  const entry={formato,sabor,tipo,vigencia_inicio:vigencia};
-  if(nota)entry.nota=nota;
-  if(tipo==='fixo'){entry.preco=parseFloat(document.getElementById('pp-preco').value);if(isNaN(entry.preco)){showImportResult('pp-add-result','err','Preço inválido.');return;}}
-  else if(tipo==='varejo_atacado'){entry.preco_varejo=parseFloat(document.getElementById('pp-varejo').value);entry.preco_atacado=parseFloat(document.getElementById('pp-atacado').value);if(isNaN(entry.preco_varejo)||isNaN(entry.preco_atacado)){showImportResult('pp-add-result','err','Preços inválidos.');return;}}
-  else if(tipo==='proxy_peso'){entry.preco_kg=parseFloat(document.getElementById('pp-precokg').value);entry.kg_medio_balde=parseFloat(document.getElementById('pp-kgmedio').value);if(isNaN(entry.preco_kg)||isNaN(entry.kg_medio_balde)){showImportResult('pp-add-result','err','Valores inválidos.');return;}}
-  else if(tipo==='tiers'){
-    const raw=document.getElementById('pp-tiersraw').value.trim();
-    try{
-      entry.tiers=raw.split('\n').filter(l=>l.trim()).map(l=>{const[q,v]=l.split(':');return{min_qtd:parseFloat(q),preco:parseFloat(v)};});
-      if(!entry.tiers.length||entry.tiers.some(t=>isNaN(t.min_qtd)||isNaN(t.preco)))throw 0;
-    }catch(e){showImportResult('pp-add-result','err','Formato de tiers inválido. Use qtd:preço, um por linha.');return;}
-  }
-  producaoPrecos.push(entry);
-  saveAll();
-  renderProducao();
-  showImportResult('pp-add-result','ok','✓ Vigência adicionada.');
-  document.getElementById('pp-formato').value='';document.getElementById('pp-sabor').value='';document.getElementById('pp-vigencia').value='';document.getElementById('pp-nota').value='';
 }
 
 function removePrecoVigencia(i){
