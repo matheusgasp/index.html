@@ -426,8 +426,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
   <div class="hd-title">🍦 Gestão Financeira</div>
   <div class="tabs">
     <button class="tab active"  onclick="goTab('nf')">📦 NF</button>
-    <button class="tab"         onclick="goTab('vendas')">🛒 Vendas</button>
-    <button class="tab"         onclick="goTab('despesas')">💸 Despesas</button>
+    <button class="tab"         onclick="goTab('despesas')">📥 Lançamentos</button>
     <button class="tab"         onclick="goTab('dre')">📊 DRE</button>
     <button class="tab"         onclick="goTab('cmv')">🏷 CMV</button>
     <button class="tab"         onclick="goTab('ap')">🧾 AP</button>
@@ -442,70 +441,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 
 <!-- ══ NF ══ -->
 <div id="panel-nf" class="panel active">
-  <div class="card" style="margin-top:4px">
-    <div class="card-title">Cabeçalho da NF</div>
-    <div class="field-row">
-      <div class="field">
-        <label>Fornecedor</label>
-        <select id="nf-forn">
-          <option value="">— selecione —</option>
-          <option value="Los Los (PPPP)">Los Los (PPPP)</option>
-          <option value="Gelateria Antártica">Gelateria Antártica</option>
-          <option value="Cream Color">Cream Color</option>
-          <option value="Ice Tasty">Ice Tasty</option>
-          <option value="Icegustos">Icegustos</option>
-          <option value="Boa Chá">Boa Chá</option>
-          <option value="DG Açaizinho">DG Açaizinho</option>
-          <option value="Outro">Outro</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Número NF</label>
-        <input type="text" id="nf-num" placeholder="000.005.994" style="font-family:var(--mono)">
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Data de emissão</label>
-        <input type="date" id="nf-data">
-      </div>
-      <div class="field">
-        <label>Total da NF (R$)</label>
-        <input type="number" id="nf-total" placeholder="0,00" step="0.01" min="0" oninput="updateNFValidation()">
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">Itens / SKUs</div>
-    <div style="overflow-x:auto">
-      <table class="itens-table" id="itens-table">
-        <thead><tr>
-          <th>Código</th>
-          <th style="min-width:150px">Descrição</th>
-          <th>Un.</th>
-          <th>Qtd</th>
-          <th>Vlr unit.</th>
-          <th>Total</th>
-          <th></th>
-        </tr></thead>
-        <tbody id="itens-body"></tbody>
-      </table>
-    </div>
-    <button class="btn-add-item" onclick="addItem()">+ Adicionar item</button>
-
-    <div class="val-bar warn" id="val-bar">
-      <div class="val-lbl warn" id="val-lbl">Aguardando itens...</div>
-      <div class="val-val" id="val-val">—</div>
-    </div>
-
-    <button class="btn-primary" id="btn-save-nf" onclick="saveNF()" disabled>Salvar NF → lança CMV no DRE</button>
-    <div class="toast" id="toast-nf"></div>
-  </div>
-
-  <div class="sep"><div class="sep-line"></div><div class="sep-lbl">📥 Importar NF via JSON</div><div class="sep-line"></div></div>
-
-  <div class="import-box">
+  <div class="import-box" style="margin-top:4px">
     <div class="import-title">⚡ Cole o JSON gerado pelo Claude</div>
     <div class="import-hint">
       Envie a NF em PDF nesta conversa e peça <em>"Gere o JSON de importação desta NF"</em>.<br>
@@ -520,108 +456,12 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
   </div>
 </div>
 
-<!-- ══ VENDAS ══ -->
-<div id="panel-vendas" class="panel">
-  <div class="card" style="margin-top:4px">
-    <div class="card-title">Registrar venda</div>
-    <div class="field-row">
-      <div class="field">
-        <label>Data</label>
-        <input type="date" id="v-data">
-      </div>
-      <div class="field">
-        <label>Valor total (R$)</label>
-        <input type="number" id="v-valor" placeholder="0,00" step="0.01" min="0">
-      </div>
-    </div>
-    <div class="field">
-      <label>Produto / descrição</label>
-      <input type="text" id="v-desc" placeholder="Ex: Los Los Pistache 90g — cx">
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Quantidade</label>
-        <input type="number" id="v-qtd" placeholder="1" step="1" min="0">
-      </div>
-      <div class="field">
-        <label>Valor unitário (R$)</label>
-        <input type="number" id="v-unit" placeholder="0,00" step="0.01" min="0" oninput="calcVendaTotal()">
-      </div>
-    </div>
-    <div class="field">
-      <label>Tipo de receita</label>
-      <select id="v-tipo">
-        <option value="rev_revenda">Revenda</option>
-        <option value="rev_propria">Produção Própria</option>
-        <option value="rev_b2b">Boleto B2B</option>
-      </select>
-    </div>
-    <button class="btn-primary" onclick="saveVenda()">Registrar venda → lança Receita no DRE</button>
-    <div class="toast" id="toast-venda"></div>
-  </div>
-  <div id="vendas-list"></div>
-</div>
-
-<!-- ══ DESPESAS ══ -->
+<!-- ══ LANÇAMENTOS ══ -->
 <div id="panel-despesas" class="panel">
-  <div class="card" style="margin-top:4px">
-    <div class="card-title">Novo lançamento manual</div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Mês</label>
-        <select id="d-month"></select>
-      </div>
-      <div class="field">
-        <label>Ano</label>
-        <select id="d-year"></select>
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Tipo</label>
-      <select id="d-tipo" onchange="onDespesamChange()">
-        <option value="">— selecione —</option>
-        <optgroup label="Despesa">
-          <option value="despesa">Despesa Operacional</option>
-          <option value="fin">Despesa Financeira (dívidas / juros)</option>
-        </optgroup>
-        <optgroup label="Receita manual">
-          <option value="rev_revenda">Receita · Revenda (manual)</option>
-          <option value="rev_propria">Receita · Produção Própria (manual)</option>
-          <option value="rev_b2b">Receita · B2B (manual)</option>
-        </optgroup>
-        <optgroup label="CMV manual">
-          <option value="cmv_propria">CMV · Produção Própria (cartão)</option>
-        </optgroup>
-      </select>
-    </div>
-
-    <div class="field" id="d-sub-wrap" style="display:none">
-      <label>Categoria</label>
-      <select id="d-subtipo"></select>
-    </div>
-
-    <div class="field">
-      <label id="d-desc-label">Descrição</label>
-      <input type="text" id="d-desc" placeholder="Descrição do lançamento">
-    </div>
-
-    <div class="field">
-      <label>Valor (R$)</label>
-      <input type="number" id="d-valor" placeholder="0,00" step="0.01">
-    </div>
-
-    <button class="btn-primary" onclick="saveDespesa()">+ Adicionar lançamento</button>
-    <div class="toast" id="toast-desp"></div>
+  <div class="info-box" style="margin-top:4px">
+    <strong>CMV de revenda</strong> é lançado automaticamente ao importar uma NF (aba 📦 NF).<br>
+    Use este painel para receitas, despesas operacionais, financeiras e CMV de produção própria.
   </div>
-
-  <div class="info-box">
-    <strong>CMV de revenda</strong> é lançado automaticamente ao salvar uma NF. <strong>Receita</strong> é lançada ao registrar uma Venda.<br>
-    Use este painel para despesas operacionais, financeiras e ajustes manuais.
-  </div>
-
-  <div class="sep"><div class="sep-line"></div><div class="sep-lbl">📥 Importação em lote</div><div class="sep-line"></div></div>
 
   <div class="import-box">
     <div class="import-title">⚡ Importar lançamentos via JSON</div>
@@ -845,15 +685,7 @@ const TIPOS_META={
   despesa:{label:'Despesa Op.',color:'#6b7280',group:'desp'},
   fin:{label:'Despesa Financeira',color:'#ef4444',group:'fin'},
 };
-const SUBTYPES_DESP=[
-  {v:'aluguel',l:'Aluguel / IPTU'},{v:'folha',l:'Folha + Encargos'},
-  {v:'gerente',l:'Gerente (PJ)'},{v:'beneficios',l:'VR + VT'},
-  {v:'fgts',l:'FGTS'},{v:'inss',l:'GPS / INSS'},
-  {v:'simples',l:'Simples Nacional'},{v:'contador',l:'Honorário Contador'},
-  {v:'manut',l:'Manutenção / Combustível'},{v:'outros',l:'Outros'},
-];
 const TIPOS_VALIDOS=Object.keys(TIPOS_META);
-const FORNECEDORES_VALIDOS=['Gelateria Antártica','Los Los (PPPP)','Cream Color','Ice Tasty','Icegustos','Boa Chá','DG Açaizinho','Outro'];
 
 let dreEntries=[];
 let nfRecords=[];
@@ -869,7 +701,6 @@ let activeHistTab='nfs';
 let dreMonth=new Date().getMonth();
 let dreYear=new Date().getFullYear();
 let dreView='detalhado';
-let itemCount=0;
 
 // ── CONFIG ──
 const GAS_URL='https://script.google.com/macros/s/AKfycbxnMTk0p6H3hGKLq8K-kYOmBi2y--7ZPzwO3zPszEQRXJThNOoXVAOf9vZnUz1Ki9va/exec';
@@ -885,9 +716,7 @@ function setSyncStatus(state,msg){
 
 // ── INIT ──
 async function init(){
-  buildFormSelects();
-  setDefaultDates();
-  addItem();
+  updateDreMonthLabel();
   // Carrega do cache local imediatamente para UI responder rápido
   try{const r=localStorage.getItem('dre_v2');if(r)dreEntries=JSON.parse(r);}catch(e){dreEntries=[];}
   try{const r=localStorage.getItem('nf_compras');if(r)nfRecords=JSON.parse(r);}catch(e){nfRecords=[];}
@@ -926,35 +755,19 @@ async function init(){
   }
 }
 
-function buildFormSelects(){
-  const ms=document.getElementById('d-month');
-  MONTHS_PT.forEach((m,i)=>ms.innerHTML+=`<option value="${i}"${i===new Date().getMonth()?' selected':''}>${m}</option>`);
-  const ys=document.getElementById('d-year');
-  for(let y=new Date().getFullYear();y>=new Date().getFullYear()-2;y--)
-    ys.innerHTML+=`<option value="${y}"${y===new Date().getFullYear()?' selected':''}>${y}</option>`;
-  updateDreMonthLabel();
-}
-
-function setDefaultDates(){
-  const today=new Date().toISOString().split('T')[0];
-  document.getElementById('nf-data').value=today;
-  document.getElementById('v-data').value=today;
-}
-
 // ── TABS ──
 function goTab(id){
   activeTab=id;
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
-  const labels={'nf':'📦 NF','vendas':'🛒 Vendas','despesas':'💸 Despesas','dre':'📊 DRE','cmv':'🏷 CMV','ap':'🧾 AP','producao':'🏭 Produção','historico':'🗂 Histórico','sazonal':'🌡 Sazonal','b2b':'🤝 B2B'};
+  const labels={'nf':'📦 NF','despesas':'📥 Lançamentos','dre':'📊 DRE','cmv':'🏷 CMV','ap':'🧾 AP','producao':'🏭 Produção','historico':'🗂 Histórico','sazonal':'🌡 Sazonal','b2b':'🤝 B2B'};
   document.querySelectorAll('.tab').forEach(t=>{if(t.textContent.trim()===labels[id])t.classList.add('active');});
   if(id==='dre')renderDRE();
   if(id==='cmv')renderCMV();
   if(id==='ap')renderAP();
   if(id==='producao')renderProducao();
   if(id==='historico')renderHistorico();
-  if(id==='vendas')renderVendasList();
   if(id==='sazonal')renderSazonal();
   if(id==='b2b')renderB2B();
 }
@@ -969,124 +782,6 @@ function goHistTab(id,e){
   if(id==='nfs')renderHistNFs();
   if(id==='lancamentos')renderHistLancamentos();
   if(id==='estoque')renderEstoque();
-}
-
-// ══ NF TAB ══
-function addItem(data={}){
-  itemCount++;
-  const id=itemCount;
-  const tbody=document.getElementById('itens-body');
-  const tr=document.createElement('tr');
-  tr.id='item-row-'+id;
-  tr.innerHTML=`
-    <td><input class="it-inp mono" style="width:76px" type="text" id="it-cod-${id}" value="${data.codigo||''}" placeholder="000001" oninput="updateNFValidation()"></td>
-    <td><input class="it-inp" style="min-width:145px" type="text" id="it-desc-${id}" value="${data.descricao||''}" placeholder="Descrição" oninput="updateNFValidation()"></td>
-    <td><input class="it-inp" style="width:46px" type="text" id="it-un-${id}" value="${data.unidade||'CX'}" oninput="updateNFValidation()"></td>
-    <td><input class="it-inp mono" style="width:50px" type="number" id="it-qtd-${id}" value="${data.quantidade||1}" step="1" min="0" oninput="recalcItem(${id})"></td>
-    <td><input class="it-inp mono" style="width:78px" type="number" id="it-unit-${id}" value="${data.valor_unit||''}" step="0.01" min="0" oninput="recalcItem(${id})" placeholder="0,00"></td>
-    <td><input class="it-inp mono" style="width:78px;font-weight:500" type="number" id="it-tot-${id}" value="${data.valor_total||''}" step="0.01" min="0" oninput="updateNFValidation()" placeholder="0,00"></td>
-    <td><button class="it-del" onclick="removeItem(${id})">×</button></td>`;
-  tbody.appendChild(tr);
-  updateNFValidation();
-}
-
-function removeItem(id){
-  document.getElementById('item-row-'+id)?.remove();
-  updateNFValidation();
-}
-
-function recalcItem(id){
-  const qtd=parseFloat(document.getElementById('it-qtd-'+id)?.value)||0;
-  const unit=parseFloat(document.getElementById('it-unit-'+id)?.value)||0;
-  const totEl=document.getElementById('it-tot-'+id);
-  if(totEl&&qtd&&unit) totEl.value=(qtd*unit).toFixed(2);
-  updateNFValidation();
-}
-
-function getItems(){
-  return [...document.getElementById('itens-body').children].map(r=>{
-    const id=r.id.replace('item-row-','');
-    return{
-      id:'it-'+id,
-      codigo:document.getElementById('it-cod-'+id)?.value.trim()||'',
-      descricao:document.getElementById('it-desc-'+id)?.value.trim()||'',
-      unidade:document.getElementById('it-un-'+id)?.value.trim()||'CX',
-      quantidade:parseFloat(document.getElementById('it-qtd-'+id)?.value)||0,
-      valor_unit:parseFloat(document.getElementById('it-unit-'+id)?.value)||0,
-      valor_total:parseFloat(document.getElementById('it-tot-'+id)?.value)||0,
-    };
-  }).filter(i=>i.descricao||i.valor_total);
-}
-
-function updateNFValidation(){
-  const items=getItems();
-  const soma=items.reduce((a,i)=>a+i.valor_total,0);
-  const totalNF=parseFloat(document.getElementById('nf-total').value)||0;
-  const bar=document.getElementById('val-bar');
-  const lbl=document.getElementById('val-lbl');
-  const val=document.getElementById('val-val');
-  const btn=document.getElementById('btn-save-nf');
-  if(!totalNF||!items.length){
-    bar.className='val-bar warn';lbl.className='val-lbl warn';
-    lbl.textContent='Preencha o total e os itens';val.textContent='—';btn.disabled=true;return;
-  }
-  const diff=Math.abs(soma-totalNF);
-  if(diff<0.02){
-    bar.className='val-bar ok';lbl.className='val-lbl ok';
-    lbl.textContent='✓ Soma confere com o total da NF';
-    val.textContent='R$ '+soma.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-    btn.disabled=false;
-  } else {
-    bar.className='val-bar err';lbl.className='val-lbl err';
-    const over=soma>totalNF;
-    lbl.textContent=(over?'↑ Excede em ':'↓ Falta ')+'R$ '+diff.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-    val.textContent='Soma: R$ '+soma.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
-    btn.disabled=true;
-  }
-}
-
-async function saveNF(){
-  const forn=document.getElementById('nf-forn').value;
-  const nfNum=document.getElementById('nf-num').value.trim();
-  const data=document.getElementById('nf-data').value;
-  const totalNF=parseFloat(document.getElementById('nf-total').value);
-  const items=getItems();
-  if(!forn){alert('Selecione o fornecedor.');return;}
-  if(!nfNum){alert('Informe o número da NF.');return;}
-  if(!data){alert('Informe a data.');return;}
-  if(!items.length){alert('Adicione ao menos um item.');return;}
-
-  const nfId='nf-'+Date.now();
-  const month=data.slice(0,7);
-
-  // Salva NF completa
-  nfRecords.push({
-    id:nfId,nf:nfNum,fornecedor:forn,emissao:data,month,
-    total_nf:totalNF,itens:items,
-    total_itens:items.reduce((a,i)=>a+i.valor_total,0),
-    validado:true,criadoEm:new Date().toISOString()
-  });
-
-  // Lança automaticamente no DRE como CMV
-  dreEntries.push({
-    id:'dre-'+Date.now(),source:'nf',source_id:nfId,
-    month,tipo:'cmv_revenda',subtipo:'',
-    fornecedor:forn,
-    descricao:forn+' — NF '+nfNum,
-    valor:totalNF,criadoEm:new Date().toISOString()
-  });
-
-  await saveAll();
-  resetNFForm();
-  showToast('toast-nf','✓ NF '+nfNum+' salva e CMV lançado no DRE!');
-}
-
-function resetNFForm(){
-  document.getElementById('nf-forn').value='';
-  document.getElementById('nf-num').value='';
-  document.getElementById('nf-total').value='';
-  document.getElementById('itens-body').innerHTML='';
-  itemCount=0;addItem();updateNFValidation();
 }
 
 // ── NF IMPORT ──
@@ -1142,127 +837,6 @@ async function importNFJSON(){
 function clearNFImport(){
   document.getElementById('nf-import-json').value='';
   document.getElementById('nf-import-result').style.display='none';
-}
-
-// ══ VENDAS TAB ══
-function calcVendaTotal(){
-  const qtd=parseFloat(document.getElementById('v-qtd').value)||0;
-  const unit=parseFloat(document.getElementById('v-unit').value)||0;
-  if(qtd&&unit) document.getElementById('v-valor').value=(qtd*unit).toFixed(2);
-}
-
-async function saveVenda(){
-  const data=document.getElementById('v-data').value;
-  const desc=document.getElementById('v-desc').value.trim();
-  const qtd=parseFloat(document.getElementById('v-qtd').value)||0;
-  const unit=parseFloat(document.getElementById('v-unit').value)||0;
-  const valor=parseFloat(document.getElementById('v-valor').value)||0;
-  const tipo=document.getElementById('v-tipo').value;
-  if(!desc){alert('Informe o produto.');return;}
-  if(!valor){alert('Informe o valor.');return;}
-  if(!data){alert('Informe a data.');return;}
-
-  const vendaId='venda-'+Date.now();
-  const month=data.slice(0,7);
-
-  vendaRecords.push({
-    id:vendaId,data,month,descricao:desc,quantidade:qtd,
-    valor_unit:unit,valor_total:valor,tipo,criadoEm:new Date().toISOString()
-  });
-
-  dreEntries.push({
-    id:'dre-'+Date.now(),source:'venda',source_id:vendaId,
-    month,tipo,subtipo:'',descricao:desc,valor,criadoEm:new Date().toISOString()
-  });
-
-  await saveAll();
-  document.getElementById('v-desc').value='';
-  document.getElementById('v-qtd').value='';
-  document.getElementById('v-unit').value='';
-  document.getElementById('v-valor').value='';
-  showToast('toast-venda','✓ Venda registrada e receita lançada no DRE!');
-  renderVendasList();
-}
-
-function renderVendasList(){
-  const c=document.getElementById('vendas-list');
-  if(!vendaRecords.length){c.innerHTML='';return;}
-  const sorted=[...vendaRecords].sort((a,b)=>b.data.localeCompare(a.data));
-  const byMonth={};
-  sorted.forEach(v=>{if(!byMonth[v.month])byMonth[v.month]=[];byMonth[v.month].push(v);});
-  c.innerHTML=Object.entries(byMonth).map(([m,vs])=>`
-    <div style="margin-bottom:14px">
-      <div class="month-hd">${mkl(m)} · ${vs.length} venda${vs.length>1?'s':''} · R$ ${vs.reduce((a,v)=>a+v.valor_total,0).toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
-      ${vs.map(v=>`<div class="hent">
-        <div class="hdot" style="background:var(--y)"></div>
-        <div class="hinfo">
-          <div class="hdesc">${v.descricao}</div>
-          <div class="htipo">${v.data}${v.quantidade?' · Qtd: '+v.quantidade:''} · ${TIPOS_META[v.tipo]?.label||v.tipo}</div>
-        </div>
-        <div class="hval" style="color:var(--g-text)">R$ ${v.valor_total.toLocaleString('pt-BR',{minimumFractionDigits:0})}</div>
-        <button class="hdel" onclick="delVenda('${v.id}')">×</button>
-      </div>`).join('')}
-    </div>`).join('');
-}
-
-async function delVenda(id){
-  if(!confirm('Remover esta venda?'))return;
-  vendaRecords=vendaRecords.filter(v=>v.id!==id);
-  dreEntries=dreEntries.filter(e=>e.source_id!==id);
-  await saveAll();renderVendasList();
-}
-
-// ══ DESPESAS TAB ══
-function onDespesamChange(){
-  const tipo=document.getElementById('d-tipo').value;
-  const sw=document.getElementById('d-sub-wrap');
-  const sub=document.getElementById('d-subtipo');
-  const dl=document.getElementById('d-desc-label');
-  sub.innerHTML='';sw.style.display='none';
-  if(tipo==='despesa'){
-    sw.style.display='block';
-    SUBTYPES_DESP.forEach(s=>sub.innerHTML+=`<option value="${s.v}">${s.l}</option>`);
-    dl.textContent='Complemento (opcional)';
-    document.getElementById('d-desc').placeholder='Ex: referência, fornecedor, observação...';
-  } else if(tipo==='fin'){
-    dl.textContent='Descrição da dívida / encargo';
-    document.getElementById('d-desc').placeholder='Ex: Parcela PGFN, IOF cartão...';
-  } else if(tipo==='cmv_propria'){
-    dl.textContent='Referência';
-    document.getElementById('d-desc').placeholder='Ex: Fatura cartão Inter março';
-  } else {
-    dl.textContent='Descrição';
-    document.getElementById('d-desc').placeholder='Ex: PDV março, Boletos semana 1...';
-  }
-}
-
-async function saveDespesa(){
-  const tipo=document.getElementById('d-tipo').value;
-  const month=parseInt(document.getElementById('d-month').value);
-  const year=parseInt(document.getElementById('d-year').value);
-  const valor=parseFloat(document.getElementById('d-valor').value);
-  if(!tipo){alert('Selecione o tipo.');return;}
-  if(!valor||valor===0){alert('Valor inválido.');return;}
-
-  let subtipo='',descricao='';
-  if(tipo==='despesa'){
-    subtipo=document.getElementById('d-subtipo').value;
-    const cat=SUBTYPES_DESP.find(s=>s.v===subtipo)?.l||subtipo;
-    const comp=document.getElementById('d-desc').value.trim();
-    descricao=cat+(comp?' · '+comp:'');
-  } else {
-    descricao=document.getElementById('d-desc').value.trim()||TIPOS_META[tipo]?.label||tipo;
-  }
-
-  dreEntries.push({
-    id:'dre-'+Date.now(),source:'manual',
-    month:`${year}-${String(month+1).padStart(2,'0')}`,
-    tipo,subtipo,descricao,valor,criadoEm:new Date().toISOString()
-  });
-  await saveAll();
-  document.getElementById('d-valor').value='';
-  document.getElementById('d-desc').value='';
-  showToast('toast-desp','✓ Lançamento salvo');
 }
 
 // DRE import
