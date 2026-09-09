@@ -425,12 +425,11 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
   <div class="hd-eye">Atacadão do Sorvete · Matriz</div>
   <div class="hd-title">🍦 Gestão Financeira</div>
   <div class="tabs">
-    <button class="tab active"  onclick="goTab('nf')">📦 NF</button>
-    <button class="tab"         onclick="goTab('despesas')">📥 Lançamentos</button>
+    <button class="tab active"  onclick="goTab('despesas')">📥 Lançamentos</button>
     <button class="tab"         onclick="goTab('dre')">📊 DRE</button>
-    <button class="tab"         onclick="goTab('cmv')">🏷 CMV</button>
     <button class="tab"         onclick="goTab('ap')">🧾 AP</button>
     <button class="tab"         onclick="goTab('producao')">🏭 Produção</button>
+    <button class="tab"         onclick="goTab('cmv')">🏷 CMV</button>
     <button class="tab"         onclick="goTab('historico')">🗂 Histórico</button>
     <button class="tab"         onclick="goTab('sazonal')">🌡 Sazonal</button>
     <button class="tab"         onclick="goTab('b2b')">🤝 B2B</button>
@@ -439,25 +438,8 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 
 <div class="body">
 
-<!-- ══ NF ══ -->
-<div id="panel-nf" class="panel active">
-  <div class="import-box" style="margin-top:4px">
-    <div class="import-title">⚡ Cole o JSON gerado pelo Claude</div>
-    <div class="import-hint">
-      Envie a NF em PDF nesta conversa e peça <em>"Gere o JSON de importação desta NF"</em>.<br>
-      <strong>Campos:</strong> <code>nf</code> · <code>fornecedor</code> · <code>emissao</code> · <code>total_nf</code> · <code>itens[]</code>
-    </div>
-    <textarea class="json-area" id="nf-import-json" placeholder='[{"nf":"000.005.994","fornecedor":"Los Los (PPPP)","emissao":"2026-04-01","total_nf":1115.12,"itens":[{"codigo":"000045","descricao":"LOS LOS PISTACHE 90G 12UN","unidade":"CX","quantidade":1,"valor_unit":160.56,"valor_total":160.56}]}]'></textarea>
-    <div class="btn-row">
-      <button class="btn-import" onclick="importNFJSON()">✓ Importar NF</button>
-      <button class="btn-clear-imp" onclick="clearNFImport()">✕ Limpar</button>
-    </div>
-    <div class="import-result" id="nf-import-result"></div>
-  </div>
-</div>
-
 <!-- ══ LANÇAMENTOS ══ -->
-<div id="panel-despesas" class="panel">
+<div id="panel-despesas" class="panel active">
   <div class="info-box" style="margin-top:4px">
     <strong>Lança qualquer movimento do DRE:</strong> receitas (produção própria, revenda, B2B), CMV de revenda, CMV de produção própria, despesas operacionais e despesas financeiras. Cole abaixo o JSON gerado pelo Claude.
   </div>
@@ -695,7 +677,7 @@ let producaoPrecos=[];
 let producaoPendencias=[];
 let prodSelectedPeriod=null;
 let apCol='vencido';
-let activeTab='nf';
+let activeTab='despesas';
 let activeHistTab='nfs';
 let dreMonth=new Date().getMonth();
 let dreYear=new Date().getFullYear();
@@ -760,7 +742,7 @@ function goTab(id){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('panel-'+id).classList.add('active');
-  const labels={'nf':'📦 NF','despesas':'📥 Lançamentos','dre':'📊 DRE','cmv':'🏷 CMV','ap':'🧾 AP','producao':'🏭 Produção','historico':'🗂 Histórico','sazonal':'🌡 Sazonal','b2b':'🤝 B2B'};
+  const labels={'despesas':'📥 Lançamentos','dre':'📊 DRE','ap':'🧾 AP','producao':'🏭 Produção','cmv':'🏷 CMV','historico':'🗂 Histórico','sazonal':'🌡 Sazonal','b2b':'🤝 B2B'};
   document.querySelectorAll('.tab').forEach(t=>{if(t.textContent.trim()===labels[id])t.classList.add('active');});
   if(id==='dre')renderDRE();
   if(id==='cmv')renderCMV();
@@ -784,59 +766,8 @@ function goHistTab(id,e){
 }
 
 // ── NF IMPORT ──
-async function importNFJSON(){
-  const raw=document.getElementById('nf-import-json').value.trim();
-  const res=document.getElementById('nf-import-result');
-  res.style.display='none';
-  if(!raw){showImportResult('nf-import-result','err','Cole o JSON antes de importar.');return;}
-  let parsed;
-  try{parsed=JSON.parse(raw);}catch(e){showImportResult('nf-import-result','err','JSON inválido.');return;}
-  if(!Array.isArray(parsed))parsed=[parsed];
-
-  const erros=[],novosNF=[],novosDRE=[];
-  parsed.forEach((item,i)=>{
-    const n=i+1;
-    if(!item.nf){erros.push(`Item ${n}: campo "nf" obrigatório`);return;}
-    if(!item.fornecedor){erros.push(`Item ${n}: campo "fornecedor" obrigatório`);return;}
-    if(!item.total_nf||item.total_nf<=0){erros.push(`Item ${n}: "total_nf" inválido`);return;}
-    if(!Array.isArray(item.itens)||!item.itens.length){erros.push(`Item ${n}: "itens" deve ser array com ao menos 1 item`);return;}
-    const soma=item.itens.reduce((a,it)=>a+(it.valor_total||0),0);
-    const diff=Math.abs(soma-item.total_nf);
-    if(diff>0.05){erros.push(`Item ${n}: soma itens (${soma.toFixed(2)}) ≠ total_nf (${item.total_nf})`);return;}
-    const emissao=item.emissao||new Date().toISOString().split('T')[0];
-    const month=emissao.slice(0,7);
-    const nfId='nf-imp-'+Date.now()+'-'+n;
-    novosNF.push({
-      id:nfId,nf:item.nf,fornecedor:item.fornecedor,emissao,month,
-      total_nf:item.total_nf,
-      itens:item.itens.map((it,j)=>({
-        id:'it-imp-'+j,codigo:it.codigo||'',descricao:it.descricao||'',
-        unidade:it.unidade||'CX',quantidade:it.quantidade||0,
-        valor_unit:it.valor_unit||0,valor_total:it.valor_total||0
-      })),
-      total_itens:soma,validado:true,criadoEm:new Date().toISOString(),importado:true
-    });
-    novosDRE.push({
-      id:'dre-imp-'+Date.now()+'-'+n,source:'nf',source_id:nfId,
-      month,tipo:'cmv_revenda',subtipo:'',
-      fornecedor:item.fornecedor,
-      descricao:item.fornecedor+' — NF '+item.nf,
-      valor:item.total_nf,criadoEm:new Date().toISOString()
-    });
-  });
-
-  if(erros.length){showImportResult('nf-import-result','err','Erros:<br>• '+erros.join('<br>• '));return;}
-  nfRecords=[...nfRecords,...novosNF];
-  dreEntries=[...dreEntries,...novosDRE];
-  await saveAll();
-  document.getElementById('nf-import-json').value='';
-  showImportResult('nf-import-result','ok',`✓ ${novosNF.length} NF${novosNF.length>1?'s':''} importada${novosNF.length>1?'s':''} e CMV lançado no DRE!`);
-}
-
-function clearNFImport(){
-  document.getElementById('nf-import-json').value='';
-  document.getElementById('nf-import-result').style.display='none';
-}
+// (removido — a importação de NF nova não é mais usada; histórico de
+// nfRecords e a visualização em 🗂 Histórico → NFs continuam intactos)
 
 // DRE import
 async function importDREJSON(){
