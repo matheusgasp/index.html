@@ -514,6 +514,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     <div class="card-title">🏭 Produção — Resumo</div>
     <div class="strip strip-2" id="prod-summary"></div>
     <div class="prod-period" id="prod-period"></div>
+    <div id="prod-ultimo-dia" style="font-size:11px;color:var(--tx2);margin:2px 0 8px 2px"></div>
     <input id="prod-search" placeholder="Buscar sabor…" oninput="renderProducao()" style="width:100%;padding:8px 10px;border:1px solid var(--bd);border-radius:var(--r8);font-family:var(--fn);font-size:13px;background:var(--surf2)">
   </div>
 
@@ -1604,6 +1605,14 @@ function renderProducao(){
   const periodEl=document.getElementById('prod-period');
   periodEl.innerHTML=months.map(m=>`<span class="prod-chip ${m===prodSelectedPeriod?'':'ghost'}" onclick="selectProdPeriod('${m}')">${mkl(m)}</span>`).join('')+
     `<span class="prod-chip ${prodSelectedPeriod==='all'?'':'ghost'}" onclick="selectProdPeriod('all')">Acumulado</span>`;
+
+  const ultimoDiaEl=document.getElementById('prod-ultimo-dia');
+  if(ultimoDiaEl){
+    const datas=producaoRecords.filter(r=>r.data).map(r=>r.data).sort();
+    const ultima=datas.length?datas[datas.length-1]:null;
+    const up=ultima?ultima.split('-'):null;
+    ultimoDiaEl.textContent=up?`Último dia de produção lançado: ${up[2]}/${up[1]}/${up[0]}`:'';
+  }
 
   const agg=computeProdAgg(prodSelectedPeriod);
   document.getElementById('prod-summary').innerHTML=`
